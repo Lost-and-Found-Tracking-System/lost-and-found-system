@@ -16,7 +16,6 @@ import {
   submitOrganizationItem
 } from '../../services/itemService.js'
 import { createApiError } from '../../middleware/errorHandler.js'
-import { Types } from 'mongoose'
 
 export const itemsRouter = Router()
 
@@ -156,7 +155,7 @@ itemsRouter.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Respo
 
     const sortOptions = {
       field: sort as string,
-      order: order === 'asc' ? 1 : -1,
+      order: order === 'asc' ? 1 as const : -1 as const,
     }
 
     const result = await searchItems(filters, limitNum, skip, sortOptions, req.user?.userId)

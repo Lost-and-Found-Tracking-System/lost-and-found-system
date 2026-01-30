@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from 'express'
-import { verifyAccessToken, TokenPayload } from '../utils/jwt.js'
+import type { Request, Response, NextFunction } from 'express'
+import { verifyAccessToken } from '../utils/jwt.js'
+import type { TokenPayload } from '../utils/jwt.js'
 
 export interface AuthRequest extends Request {
   user?: TokenPayload
@@ -25,7 +26,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   next()
 }
 
-export function optionalAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+export function optionalAuthMiddleware(req: AuthRequest, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization
 
   if (authHeader?.startsWith('Bearer ')) {

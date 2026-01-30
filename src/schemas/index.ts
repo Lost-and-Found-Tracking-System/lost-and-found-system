@@ -190,14 +190,7 @@ export const notificationPreferencesSchema = z.object({
 })
 export type NotificationPreferencesRequest = z.infer<typeof notificationPreferencesSchema>
 
-// PROFILE UPDATE SCHEMAS
-export const updateProfileSchema = z.object({
-  email: z.string().email('Invalid email').optional(),
-  phone: z.string().optional(),
-  affiliation: z.string().optional(),
-})
-
-export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>
+// Note: updateProfileSchema is declared in USER SCHEMAS section above
 
 // PASSWORD RESET SCHEMAS
 export const passwordResetRequestSchema = z.object({

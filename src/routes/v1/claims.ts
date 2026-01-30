@@ -3,7 +3,7 @@ import { authMiddleware } from '../../middleware/auth.js'
 import { validateRequest } from '../../middleware/validation.js'
 import { submitClaimSchema } from '../../schemas/index.js'
 import { ClaimModel, AuditLogModel } from '../../models/index.js'
-import { AuthRequest } from '../../middleware/auth.js'
+import type { AuthRequest } from '../../middleware/auth.js'
 import { createApiError } from '../../middleware/errorHandler.js'
 import { Types } from 'mongoose'
 

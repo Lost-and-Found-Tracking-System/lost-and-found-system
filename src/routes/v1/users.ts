@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { authMiddleware, AuthRequest } from '../../middleware/auth.js'
+import { authMiddleware } from '../../middleware/auth.js'
+import type { AuthRequest } from '../../middleware/auth.js'
 import { validateRequest } from '../../middleware/validation.js'
 import { updateProfileSchema, updateNotificationPrefsSchema } from '../../schemas/index.js'
 import { UserModel, LoginActivityLogModel, NotificationPreferencesModel, AuditLogModel } from '../../models/index.js'
@@ -16,11 +17,11 @@ usersRouter.get('/profile', authMiddleware, async (req: AuthRequest, res, next) 
   try {
     const user = await UserModel.findById(req.user?.userId)
       .select('-credentials.passwordHash')
-    
+
     if (!user) {
       throw createApiError(404, 'User not found')
     }
-    
+
     res.json(user)
   } catch (error) {
     next(error)
@@ -34,7 +35,7 @@ usersRouter.get('/profile', authMiddleware, async (req: AuthRequest, res, next) 
 usersRouter.put('/profile', authMiddleware, validateRequest(updateProfileSchema), async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId
-    
+
     const user = await UserModel.findByIdAndUpdate(
       userId,
       {
@@ -46,11 +47,11 @@ usersRouter.put('/profile', authMiddleware, validateRequest(updateProfileSchema)
       },
       { new: true }
     ).select('-credentials.passwordHash')
-    
+
     if (!user) {
       throw createApiError(404, 'User not found')
     }
-    
+
     // Log the action
     await AuditLogModel.create({
       actorId: new Types.ObjectId(userId),
@@ -60,7 +61,7 @@ usersRouter.put('/profile', authMiddleware, validateRequest(updateProfileSchema)
       metadata: { updatedFields: Object.keys(req.body) },
       timestamp: new Date(),
     })
-    
+
     res.json(user)
   } catch (error) {
     next(error)
@@ -78,7 +79,7 @@ usersRouter.get('/login-activity', authMiddleware, async (req: AuthRequest, res,
     })
       .sort({ timestamp: -1 })
       .limit(20)
-    
+
     res.json(activities)
   } catch (error) {
     next(error)
@@ -92,12 +93,12 @@ usersRouter.get('/login-activity', authMiddleware, async (req: AuthRequest, res,
 usersRouter.get('/my-items', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
     const { ItemModel } = await import('../../models/index.js')
-    
+
     const items = await ItemModel.find({
       submittedBy: new Types.ObjectId(req.user?.userId)
     })
       .sort({ createdAt: -1 })
-    
+
     res.json(items)
   } catch (error) {
     next(error)
@@ -113,7 +114,7 @@ usersRouter.get('/notification-preferences', authMiddleware, async (req: AuthReq
     let prefs = await NotificationPreferencesModel.findOne({
       userId: new Types.ObjectId(req.user?.userId)
     })
-    
+
     // Create default preferences if not exists
     if (!prefs) {
       prefs = await NotificationPreferencesModel.create({
@@ -122,7 +123,7 @@ usersRouter.get('/notification-preferences', authMiddleware, async (req: AuthReq
         priorities: {}
       })
     }
-    
+
     res.json(prefs)
   } catch (error) {
     next(error)
@@ -144,7 +145,7 @@ usersRouter.put('/notification-preferences', authMiddleware, validateRequest(upd
       },
       { new: true, upsert: true }
     )
-    
+
     res.json(prefs)
   } catch (error) {
     next(error)

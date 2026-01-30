@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express'
-import { ZodSchema } from 'zod'
+import type { Request, Response, NextFunction } from 'express'
+import type { ZodSchema } from 'zod'
 
 export function validateRequest(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -25,7 +25,7 @@ export function validateQuery(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const validated = schema.parse(req.query)
-      req.query = validated as Record<string, unknown>
+      req.query = validated as typeof req.query
       next()
     } catch (error: unknown) {
       if (error instanceof Error && 'errors' in error) {

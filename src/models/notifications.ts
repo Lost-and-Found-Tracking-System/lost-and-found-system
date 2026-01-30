@@ -1,4 +1,5 @@
-import { Schema, model, Types, InferSchemaType } from 'mongoose'
+import { Schema, model, Types } from 'mongoose'
+import type { InferSchemaType } from 'mongoose'
 
 // NOTIFICATIONS
 const notificationSchema = new Schema({
@@ -82,4 +83,3 @@ announcementsSchema.index({ sentAt: -1 })
 
 export type Announcement = InferSchemaType<typeof announcementsSchema>
 export const AnnouncementModel = model('announcements', announcementsSchema)
-

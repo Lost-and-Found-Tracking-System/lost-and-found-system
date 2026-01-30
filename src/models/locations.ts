@@ -1,4 +1,5 @@
-import { Schema, model, Types, InferSchemaType } from 'mongoose'
+import { Schema, model, Types } from 'mongoose'
+import type { InferSchemaType } from 'mongoose'
 
 // CAMPUS ZONES
 const campusZoneSchema = new Schema({
