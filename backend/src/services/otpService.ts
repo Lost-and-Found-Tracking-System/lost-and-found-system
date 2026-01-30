@@ -1,100 +1,76 @@
+// OTP Service with Redis Storage
+// Production-ready OTP generation, storage, and verification
+
 import crypto from 'crypto'
 import { UserModel } from '../models/index.js'
-
-// In-memory OTP store (in production, use Redis)
-const otpStore = new Map<string, { otp: string; expiresAt: Date; purpose: 'password_reset' | 'visitor_registration' | 'email_verification' }>()
+import { storeOtp, getStoredOtp, deleteOtp, checkRateLimit } from '../config/redis.js'
+import { sendOtpEmail } from './emailService.js'
+import { sendOtpSms, normalizePhoneNumber, isValidPhoneNumber } from './smsService.js'
 
 const OTP_EXPIRY_MINUTES = 10
+const OTP_EXPIRY_SECONDS = OTP_EXPIRY_MINUTES * 60
 const MAX_ATTEMPTS = 5
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const RATE_LIMIT_WINDOW_SECONDS = 60 * 60 // 1 hour
 
-// Rate limiting store
-const rateLimitStore = new Map<string, { attempts: number; windowStart: Date }>()
+export type OtpPurpose = 'password_reset' | 'visitor_registration' | 'email_verification'
 
 export function generateOtp(): string {
     return crypto.randomInt(100000, 999999).toString()
 }
 
+/**
+ * Create and store an OTP in Redis
+ */
 export async function createOtp(
     identifier: string,
-    purpose: 'password_reset' | 'visitor_registration' | 'email_verification'
+    purpose: OtpPurpose
 ): Promise<{ otp: string; expiresAt: Date }> {
-    // Check rate limiting
-    const rateLimit = rateLimitStore.get(identifier)
-    const now = new Date()
+    // Check rate limiting using Redis
+    const rateCheck = await checkRateLimit(
+        `otp:${identifier}`,
+        MAX_ATTEMPTS,
+        RATE_LIMIT_WINDOW_SECONDS
+    )
 
-    if (rateLimit) {
-        if (now.getTime() - rateLimit.windowStart.getTime() < RATE_LIMIT_WINDOW_MS) {
-            if (rateLimit.attempts >= MAX_ATTEMPTS) {
-                throw new Error('Too many OTP requests. Please try again later.')
-            }
-            rateLimit.attempts += 1
-        } else {
-            // Reset window
-            rateLimitStore.set(identifier, { attempts: 1, windowStart: now })
-        }
-    } else {
-        rateLimitStore.set(identifier, { attempts: 1, windowStart: now })
+    if (!rateCheck.allowed) {
+        throw new Error('Too many OTP requests. Please try again later.')
     }
 
     const otp = generateOtp()
-    const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000)
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000)
 
-    otpStore.set(`${identifier}:${purpose}`, { otp, expiresAt, purpose })
+    // Store OTP in Redis with TTL
+    await storeOtp(identifier, purpose, otp, OTP_EXPIRY_SECONDS)
 
     return { otp, expiresAt }
 }
 
-export function verifyOtp(
+/**
+ * Verify an OTP from Redis
+ */
+export async function verifyOtp(
     identifier: string,
     inputOtp: string,
-    purpose: 'password_reset' | 'visitor_registration' | 'email_verification'
-): boolean {
-    const key = `${identifier}:${purpose}`
-    const stored = otpStore.get(key)
+    purpose: OtpPurpose
+): Promise<boolean> {
+    const storedOtp = await getStoredOtp(identifier, purpose)
 
-    if (!stored) {
+    if (!storedOtp) {
         return false
     }
 
-    if (new Date() > stored.expiresAt) {
-        otpStore.delete(key)
+    if (storedOtp !== inputOtp) {
         return false
     }
 
-    if (stored.otp !== inputOtp) {
-        return false
-    }
-
-    // OTP verified, remove it
-    otpStore.delete(key)
+    // OTP verified, delete it
+    await deleteOtp(identifier, purpose)
     return true
 }
 
-export async function sendOtpEmail(
-    email: string,
-    otp: string,
-    purpose: 'password_reset' | 'visitor_registration' | 'email_verification'
-): Promise<void> {
-    // TODO: Integrate with email service (nodemailer, SendGrid, etc.)
-    // For now, log to console in development
-    const subjectMap = {
-        password_reset: 'Password Reset OTP',
-        visitor_registration: 'Visitor Registration OTP',
-        email_verification: 'Email Verification OTP',
-    }
-
-    console.log(`
-========================================
-📧 OTP EMAIL
-To: ${email}
-Subject: ${subjectMap[purpose]}
-OTP: ${otp}
-Valid for: ${OTP_EXPIRY_MINUTES} minutes
-========================================
-  `)
-}
-
+/**
+ * Initiate password reset via email OTP
+ */
 export async function initiatePasswordReset(email: string): Promise<void> {
     const user = await UserModel.findOne({ 'profile.email': email })
 
@@ -107,27 +83,64 @@ export async function initiatePasswordReset(email: string): Promise<void> {
     await sendOtpEmail(email, otp, 'password_reset')
 }
 
-export async function initiateVisitorRegistration(email: string): Promise<void> {
+/**
+ * Initiate visitor registration via SMS OTP
+ * Visitors use phone number as primary identifier
+ */
+export async function initiateVisitorRegistration(phone: string): Promise<void> {
+    const normalizedPhone = normalizePhoneNumber(phone)
+
+    if (!isValidPhoneNumber(normalizedPhone)) {
+        throw new Error('Invalid phone number format. Please use format: +91XXXXXXXXXX')
+    }
+
+    // Check if visitor already exists with this phone
+    const existingUser = await UserModel.findOne({ 'profile.phone': normalizedPhone })
+    if (existingUser) {
+        throw new Error('A user with this phone number already exists')
+    }
+
+    const { otp } = await createOtp(normalizedPhone, 'visitor_registration')
+    await sendOtpSms(normalizedPhone, otp, 'visitor_registration')
+}
+
+/**
+ * Initiate visitor registration via email (optional secondary method)
+ */
+export async function initiateVisitorRegistrationByEmail(email: string): Promise<void> {
+    // Check if user already exists
+    const existingUser = await UserModel.findOne({ 'profile.email': email })
+    if (existingUser) {
+        throw new Error('A user with this email already exists')
+    }
+
     const { otp } = await createOtp(email, 'visitor_registration')
     await sendOtpEmail(email, otp, 'visitor_registration')
 }
 
 export interface VisitorRegistrationInput {
-    email: string
+    phone: string
     fullName: string
-    phone?: string
+    email?: string
     otp: string
 }
 
-export async function completeVisitorRegistration(input: VisitorRegistrationInput): Promise<{ userId: string; expiresAt: Date }> {
+/**
+ * Complete visitor registration after phone OTP verification
+ */
+export async function completeVisitorRegistration(
+    input: VisitorRegistrationInput
+): Promise<{ userId: string; expiresAt: Date }> {
+    const normalizedPhone = normalizePhoneNumber(input.phone)
+
     // Verify OTP
-    const isValid = verifyOtp(input.email, input.otp, 'visitor_registration')
+    const isValid = await verifyOtp(normalizedPhone, input.otp, 'visitor_registration')
     if (!isValid) {
         throw new Error('Invalid or expired OTP')
     }
 
     // Check if visitor already exists
-    const existingUser = await UserModel.findOne({ 'profile.email': input.email })
+    const existingUser = await UserModel.findOne({ 'profile.phone': normalizedPhone })
     if (existingUser) {
         throw new Error('User already exists')
     }
@@ -146,8 +159,9 @@ export async function completeVisitorRegistration(input: VisitorRegistrationInpu
         },
         profile: {
             fullName: input.fullName,
-            email: input.email,
-            phone: input.phone,
+            phone: normalizedPhone,
+            phoneVerified: true,
+            email: input.email || undefined,
         },
         visitorMetadata: {
             otpVerified: true,
@@ -164,14 +178,32 @@ export async function completeVisitorRegistration(input: VisitorRegistrationInpu
     }
 }
 
-export function cleanupExpiredOtps(): void {
-    const now = new Date()
-    for (const [key, value] of otpStore.entries()) {
-        if (now > value.expiresAt) {
-            otpStore.delete(key)
-        }
-    }
+/**
+ * Initiate email verification
+ */
+export async function initiateEmailVerification(email: string): Promise<void> {
+    const { otp } = await createOtp(email, 'email_verification')
+    await sendOtpEmail(email, otp, 'email_verification')
 }
 
-// Run cleanup every 5 minutes
-setInterval(cleanupExpiredOtps, 5 * 60 * 1000)
+/**
+ * Verify email address
+ */
+export async function verifyEmailAddress(
+    userId: string,
+    email: string,
+    otp: string
+): Promise<boolean> {
+    const isValid = await verifyOtp(email, otp, 'email_verification')
+
+    if (!isValid) {
+        return false
+    }
+
+    // Update user's email verification status
+    await UserModel.findByIdAndUpdate(userId, {
+        'profile.emailVerified': true,
+    })
+
+    return true
+}
