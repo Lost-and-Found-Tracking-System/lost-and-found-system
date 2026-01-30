@@ -1,111 +1,149 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, User, ShieldCheck, LifeBuoy } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { User, Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [role, setRole] = useState('student');
-    const { login } = useAuth();
     const navigate = useNavigate();
+    const { login } = useAuth();
+    const [formData, setFormData] = useState({ email: '', password: '' });
+    const [selectedRole, setSelectedRole] = useState('student');
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setLoading(true);
+
         try {
-            await login({ email, password, role });
-            navigate('/dashboard');
+            const user = await login({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            // Redirect based on role
+            if (user.role === 'admin' || user.role === 'delegated_admin') {
+                navigate('/admin');
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err) {
-            alert('Login failed');
+            console.error('Login failed:', err);
+            setError(err.error || err.message || 'Invalid email or password');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-600/20 blur-[120px] rounded-full"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full"></div>
-            </div>
-
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-md w-full space-y-8 bg-slate-900/50 p-8 rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl"
-            >
-                <div className="text-center">
-                    <div className="inline-flex p-3 rounded-xl bg-primary-500/10 text-primary-400 mb-4">
-                        <LogIn size={32} />
-                    </div>
-                    <h2 className="text-3xl font-extrabold text-white">Campus Lost & Found</h2>
-                    <p className="mt-2 text-slate-400">Institutional Access Management</p>
+        <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl font-black text-white tracking-tight">
+                        LOST<span className="text-primary-500">&</span>FOUND
+                    </h1>
+                    <p className="text-slate-400 mt-2">Neural Recovery System</p>
                 </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-3 gap-3 mb-6">
-                        {[
-                            { id: 'student', icon: User, label: 'Student' },
-                            { id: 'admin', icon: ShieldCheck, label: 'Admin' },
-                            { id: 'visitor', icon: LifeBuoy, label: 'Visitor' },
-                        ].map((r) => (
+                {/* Login Card */}
+                <div className="bg-slate-900/50 backdrop-blur-xl rounded-3xl p-8 border border-slate-800">
+                    <h2 className="text-2xl font-bold text-white mb-6">Welcome Back</h2>
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Role Selection */}
+                    <div className="flex gap-2 mb-6">
+                        {['student', 'admin'].map((role) => (
                             <button
-                                key={r.id}
+                                key={role}
                                 type="button"
-                                onClick={() => setRole(r.id)}
-                                className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${role === r.id
-                                        ? 'border-primary-500 bg-primary-500/10 text-primary-400 shadow-[0_0_15px_rgba(14,165,233,0.3)]'
-                                        : 'border-slate-800 bg-slate-800/50 text-slate-500 hover:border-slate-700'
-                                    }`}
+                                onClick={() => setSelectedRole(role)}
+                                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                                    selectedRole === role
+                                        ? 'bg-primary-500 text-white'
+                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                }`}
                             >
-                                <r.icon size={20} className="mb-1" />
-                                <span className="text-xs font-medium">{r.label}</span>
+                                {role === 'admin' ? <Shield size={18} /> : <User size={18} />}
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
                             </button>
                         ))}
                     </div>
 
-                    <div className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Email */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Institutional Email</label>
+                            <label className="block text-slate-400 text-sm mb-2">Email</label>
                             <input
                                 type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 transition-colors"
+                                placeholder="you@amrita.edu"
                                 required
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
-                                placeholder="name@amrita.edu"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                disabled={loading}
                             />
                         </div>
+
+                        {/* Password */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-                            <input
-                                type="password"
-                                required
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
+                            <label className="block text-slate-400 text-sm mb-2">Password</label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 transition-colors pr-12"
+                                    placeholder="••••••••"
+                                    required
+                                    disabled={loading}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        className="w-full bg-primary-600 hover:bg-primary-500 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-primary-500/20 flex items-center justify-center gap-2 group"
-                    >
-                        Sign In
-                        <motion.span animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-                            →
-                        </motion.span>
-                    </button>
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 size={20} className="animate-spin" />
+                                    Authenticating...
+                                </>
+                            ) : (
+                                'Sign In'
+                            )}
+                        </button>
+                    </form>
 
-                    <div className="flex items-center justify-between text-sm">
-                        <a href="#" className="text-primary-400 hover:text-primary-300 transition-colors">Forgot password?</a>
-                        {role === 'visitor' && (
-                            <a href="/register-visitor" className="text-slate-400 hover:text-white transition-colors">Need visitor access?</a>
-                        )}
+                    {/* Links */}
+                    <div className="mt-6 text-center space-y-2">
+                        <Link to="/register-visitor" className="text-primary-400 hover:text-primary-300 text-sm block">
+                            Visitor? Register for temporary access
+                        </Link>
+                        <Link to="/" className="text-slate-500 hover:text-slate-400 text-sm block">
+                            ← Back to Home
+                        </Link>
                     </div>
-                </form>
-            </motion.div>
+                </div>
+            </div>
         </div>
     );
 };

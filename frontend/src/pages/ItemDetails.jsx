@@ -1,155 +1,249 @@
-import React from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Calendar, Tag, ShieldCheck, Sparkles, AlertTriangle, User, History, Share2, Printer, Map as MapIcon, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import {
+    ArrowLeft,
+    MapPin,
+    Calendar,
+    Tag,
+    User,
+    Clock,
+    AlertCircle,
+    CheckCircle,
+    Loader2,
+    FileText,
+} from 'lucide-react';
 
 const ItemDetails = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const [item, setItem] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    // Mock Item Data
-    const item = {
-        id: id || 'TRK-928XJ',
-        title: 'MacBook Air M2',
-        status: 'DISCOVERED',
-        type: 'FOUND',
-        loc: 'Main Library, 2nd Floor (Reading Room)',
-        date: 'Jan 25, 2026',
-        category: 'Electronics',
-        reporter: 'Aravind M. (Librarian)',
-        description: 'Laptop found near the window seating area. Midnight blue color, M2 chip, 13-inch. Attached is a small sticker of a rocket ship on the bottom left corner.',
-        aiConfidence: 96,
-        timeline: [
-            { event: 'Initial Discovery', time: 'Jan 25, 09:42 AM', desc: 'Item logged by staff node 82.' },
-            { event: 'AI Induction', time: 'Jan 25, 09:43 AM', desc: 'Neural similarity vectors generated.' },
-            { event: 'Secure Vaulting', time: 'Jan 25, 10:15 AM', desc: 'Item moved to Central Security Safe.' }
-        ]
+    useEffect(() => {
+        fetchItem();
+    }, [id]);
+
+    const fetchItem = async () => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/v1/items/${id}`);
+            setItem(res.data);
+        } catch (error) {
+            console.error('Failed to fetch item:', error);
+            setError('Item not found');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    return (
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-            {/* Navbar */}
-            <nav className="fixed top-0 w-full h-20 bg-slate-950/50 backdrop-blur-xl border-b border-slate-800/30 z-50 flex items-center px-6 md:px-12 justify-between">
-                <Link to="/inventory" className="flex items-center gap-2 text-slate-400 hover:text-white transition-all group font-bold text-sm tracking-tight uppercase">
-                    <div className="p-2 bg-slate-900 rounded-xl group-hover:bg-primary-500/10 group-hover:text-primary-400 transition-all">
-                        <ArrowLeft size={18} />
-                    </div>
-                    Grid Overview
-                </Link>
-                <div className="flex items-center gap-4">
-                    <button className="p-3 text-slate-500 hover:text-white transition-all"><Share2 size={18} /></button>
-                    <button className="p-3 text-slate-500 hover:text-white transition-all"><Printer size={18} /></button>
+    const getStatusInfo = (status) => {
+        switch (status) {
+            case 'resolved':
+                return { icon: CheckCircle, color: 'text-green-400 bg-green-500/10', label: 'Resolved' };
+            case 'matched':
+                return { icon: AlertCircle, color: 'text-blue-400 bg-blue-500/10', label: 'Matched' };
+            case 'submitted':
+                return { icon: Clock, color: 'text-yellow-400 bg-yellow-500/10', label: 'Active' };
+            default:
+                return { icon: FileText, color: 'text-slate-400 bg-slate-500/10', label: status };
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            </div>
+        );
+    }
+
+    if (error || !item) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+                <div className="text-center">
+                    <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Item Not Found</h2>
+                    <p className="text-slate-400 mb-6">{error}</p>
+                    <button
+                        onClick={() => navigate('/inventory')}
+                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600"
+                    >
+                        Back to Inventory
+                    </button>
                 </div>
-            </nav>
+            </div>
+        );
+    }
 
-            <main className="max-w-7xl mx-auto pt-32 px-6 pb-20 relative z-10">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    {/* Left: Media & Stats */}
-                    <div className="lg:col-span-5 space-y-8">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="aspect-square bg-slate-900 rounded-[3.5rem] border border-slate-800 overflow-hidden relative group"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent p-12 flex flex-col justify-end">
-                                <div className="space-y-2">
-                                    <span className="text-[10px] font-black text-primary-400 uppercase tracking-[0.4em]">Official Capture</span>
-                                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">{item.title}</h2>
-                                </div>
-                            </div>
-                            <div className="w-full h-full flex items-center justify-center text-slate-800 italic font-black text-2xl uppercase tracking-[0.2em] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20">
-                                [ NO IMAGE ATTACHED ]
-                            </div>
-                        </motion.div>
+    const statusInfo = getStatusInfo(item.status);
+    const StatusIcon = statusInfo.icon;
 
-                        <div className="bg-slate-900/40 border border-slate-800/50 rounded-[3rem] p-8 space-y-6">
-                            <div className="flex justify-between items-center pb-6 border-b border-slate-800/50">
-                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">System Identity</h3>
-                                <span className="text-primary-500 font-mono text-xs font-black uppercase">{item.id}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-6 pt-2">
-                                <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Incident Class</p>
-                                    <p className={`text-sm font-black uppercase italic ${item.type === 'FOUND' ? 'text-green-400' : 'text-primary-400'}`}>{item.type}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Category</p>
-                                    <p className="text-sm font-black text-white uppercase italic">{item.category}</p>
-                                </div>
-                            </div>
-                        </div>
+    return (
+        <div className="min-h-screen bg-[#020617] p-8">
+            <div className="max-w-4xl mx-auto">
+                {/* Back Button */}
+                <button
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
+                >
+                    <ArrowLeft size={20} />
+                    Back
+                </button>
 
-                        <div className="p-8 bg-primary-500/10 border border-primary-500/20 rounded-[2.5rem] flex gap-5 items-start">
-                            <Sparkles size={24} className="text-primary-400 shrink-0" />
-                            <div className="space-y-1">
-                                <p className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">AI Confidence Match <span className="px-2 py-0.5 bg-primary-500 text-[8px] rounded-full text-white">{item.aiConfidence}%</span></p>
-                                <p className="text-[10px] text-primary-200/60 font-medium leading-relaxed uppercase tracking-tight">
-                                    Our matching engine reports a high correlation between your profile and this item's metadata.
+                {/* Main Card */}
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden">
+                    {/* Header */}
+                    <div className="p-6 border-b border-slate-800">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-medium uppercase ${
+                                        item.submissionType === 'lost' 
+                                            ? 'bg-red-500/10 text-red-400' 
+                                            : 'bg-green-500/10 text-green-400'
+                                    }`}>
+                                        {item.submissionType}
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                        <StatusIcon size={14} />
+                                        {statusInfo.label}
+                                    </span>
+                                </div>
+                                <h1 className="text-3xl font-bold text-white">
+                                    {item.itemAttributes?.category || 'Item'}
+                                </h1>
+                                <p className="text-slate-500 mt-1">
+                                    Tracking ID: <code className="text-primary-400">{item.trackingId}</code>
                                 </p>
                             </div>
+
+                            {/* Claim Button */}
+                            {item.submissionType === 'found' && item.status !== 'resolved' && (
+                                <Link
+                                    to={`/claim/${item._id}`}
+                                    className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
+                                >
+                                    Claim This Item
+                                </Link>
+                            )}
                         </div>
                     </div>
 
-                    {/* Right: Info & Actions */}
-                    <div className="lg:col-span-7 space-y-10">
-                        <header className="space-y-6">
-                            <div className="flex flex-wrap gap-4">
-                                <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                    <MapPin size={12} className="text-primary-400" /> {item.loc}
+                    {/* Content */}
+                    <div className="p-6">
+                        <div className="grid md:grid-cols-2 gap-8">
+                            {/* Left Column - Details */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Description</h3>
+                                    <p className="text-slate-300 leading-relaxed">
+                                        {item.itemAttributes?.description || 'No description provided'}
+                                    </p>
                                 </div>
-                                <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                    <Calendar size={12} className="text-primary-400" /> {item.date}
-                                </div>
-                            </div>
-                            <h1 className="text-6xl font-black text-white tracking-tighter uppercase italic leading-[0.9]">Item <br /> Intelligence</h1>
-                        </header>
 
-                        <section className="space-y-4">
-                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-2">Description / Clues</h3>
-                            <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2.5rem] p-10 text-lg font-medium text-slate-300 leading-relaxed border-l-4 border-l-primary-500">
-                                "{item.description}"
-                            </div>
-                        </section>
-
-                        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2.5rem] p-8 space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <User size={18} className="text-slate-500" />
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reporting Entity</p>
-                                </div>
-                                <p className="font-black text-white uppercase italic text-sm">{item.reporter}</p>
-                            </div>
-                            <div className="bg-slate-900/30 border border-slate-800/50 rounded-[2.5rem] p-8 space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <History size={18} className="text-slate-500" />
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Incident Timeline</p>
-                                </div>
-                                <div className="space-y-3">
-                                    {item.timeline.map((event, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary-500 mt-1 opacity-50"></div>
-                                            <p className="text-[9px] font-medium text-slate-400 leading-tight uppercase tracking-tighter"><span className="text-white font-black">{event.event}</span> — {event.time}</p>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Attributes</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {item.itemAttributes?.color && (
+                                            <div className="bg-slate-800/50 rounded-xl p-4">
+                                                <p className="text-slate-500 text-sm">Color</p>
+                                                <p className="text-white font-medium">{item.itemAttributes.color}</p>
+                                            </div>
+                                        )}
+                                        {item.itemAttributes?.material && (
+                                            <div className="bg-slate-800/50 rounded-xl p-4">
+                                                <p className="text-slate-500 text-sm">Material</p>
+                                                <p className="text-white font-medium">{item.itemAttributes.material}</p>
+                                            </div>
+                                        )}
+                                        {item.itemAttributes?.size && (
+                                            <div className="bg-slate-800/50 rounded-xl p-4">
+                                                <p className="text-slate-500 text-sm">Size</p>
+                                                <p className="text-white font-medium">{item.itemAttributes.size}</p>
+                                            </div>
+                                        )}
+                                        <div className="bg-slate-800/50 rounded-xl p-4">
+                                            <p className="text-slate-500 text-sm">Category</p>
+                                            <p className="text-white font-medium">{item.itemAttributes?.category}</p>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
                             </div>
-                        </section>
 
-                        <div className="pt-8 space-y-4">
-                            <Link to={`/claim/${item.id}`} className="w-full h-24 bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white rounded-[2rem] font-black text-lg uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all shadow-xl shadow-primary-500/20 group active:scale-[0.98]">
-                                Initiate Claim Pipeline <ChevronRight size={24} className="group-hover:translate-x-2 transition-transform" />
-                            </Link>
-                            <div className="flex gap-4">
-                                <button className="flex-1 py-5 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 hover:text-white transition-all">
-                                    <AlertTriangle size={14} /> Report Discrepancy
-                                </button>
-                                <button className="flex-1 py-5 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 hover:text-white transition-all">
-                                    <MapIcon size={14} /> View Map Proximity
-                                </button>
+                            {/* Right Column - Meta */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Location & Time</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 text-slate-300">
+                                            <div className="p-2 bg-slate-800 rounded-lg">
+                                                <MapPin size={18} className="text-primary-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-sm">Location</p>
+                                                <p>{item.location?.zoneId?.zoneName || 'Campus'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-slate-300">
+                                            <div className="p-2 bg-slate-800 rounded-lg">
+                                                <Calendar size={18} className="text-primary-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-sm">Date {item.submissionType}</p>
+                                                <p>{new Date(item.timeMetadata?.lostOrFoundAt).toLocaleDateString('en-US', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-slate-300">
+                                            <div className="p-2 bg-slate-800 rounded-lg">
+                                                <Clock size={18} className="text-primary-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-sm">Reported on</p>
+                                                <p>{new Date(item.createdAt).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Submitter Info */}
+                                {!item.isAnonymous && item.submittedBy && (
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white mb-3">Reported By</h3>
+                                        <div className="flex items-center gap-3 bg-slate-800/50 rounded-xl p-4">
+                                            <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                                                <User size={20} className="text-primary-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-medium">
+                                                    {item.submittedBy?.profile?.fullName || 'Anonymous'}
+                                                </p>
+                                                <p className="text-slate-500 text-sm">
+                                                    {item.submittedBy?.profile?.affiliation || 'Campus Member'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {item.isAnonymous && (
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-slate-400 text-sm">
+                                        This item was reported anonymously
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };
