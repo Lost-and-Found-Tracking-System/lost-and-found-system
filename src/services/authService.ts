@@ -1,8 +1,6 @@
-import { Types } from 'mongoose'
-import { UserModel } from '../models/index.js'
+import { UserModel, LoginSessionModel } from '../models/index.js'
 import { hashPassword, verifyPassword } from '../utils/password.js'
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js'
-import { LoginSessionModel } from '../models/index.js'
 import crypto from 'crypto'
 
 export interface RegisterInput {
@@ -24,6 +22,7 @@ export interface LoginInput {
 
 export interface AuthResponse {
   userId: string
+  role: string
   accessToken: string
   refreshToken: string
 }
@@ -67,6 +66,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResponse> 
 
   return {
     userId: user._id.toString(),
+    role: user.role,
     accessToken,
     refreshToken,
   }
@@ -118,6 +118,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResponse> {
 
   return {
     userId: user._id.toString(),
+    role: user.role,
     accessToken,
     refreshToken,
   }
@@ -127,3 +128,4 @@ export async function getUserById(userId: string) {
   const user = await UserModel.findById(userId).select('-credentials.passwordHash')
   return user
 }
+
