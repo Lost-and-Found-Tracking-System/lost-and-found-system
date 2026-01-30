@@ -1,179 +1,247 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Scale, CheckCircle2, XCircle, AlertTriangle, Sparkles, User, FileText, ChevronRight, ArrowLeft, History } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../services/api';
+import {
+    ArrowLeft,
+    Check,
+    X,
+    Loader2,
+    FileText,
+    User,
+    AlertCircle,
+    Filter,
+} from 'lucide-react';
 
 const AdminClaims = () => {
+    const [claims, setClaims] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(null);
+    const [filter, setFilter] = useState('pending');
     const [selectedClaim, setSelectedClaim] = useState(null);
+    const [remarks, setRemarks] = useState('');
 
-    // Mock Claims Database
-    const claims = [
-        {
-            id: 'CLM-001',
-            item: 'MacBook Air M2',
-            claimant: 'Rahul S.',
-            status: 'CONFLICT',
-            confidence: 94,
-            proof: 'Describe a small dent on the bottom left corner and a sticker of a rocket.',
-            time: '2h ago'
-        },
-        {
-            id: 'CLM-002',
-            item: 'Noise Headphones',
-            claimant: 'Priya K.',
-            status: 'PENDING',
-            confidence: 82,
-            proof: 'Left ear cup has a slightly loose hinge. Case is black.',
-            time: '5h ago'
+    useEffect(() => {
+        fetchClaims();
+    }, [filter]);
+
+    const fetchClaims = async () => {
+        setLoading(true);
+        try {
+            const params = filter !== 'all' ? `?status=${filter}` : '';
+            const res = await api.get(`/v1/admin/claims${params}`);
+            setClaims(res.data.claims || []);
+        } catch (error) {
+            console.error('Failed to fetch claims:', error);
+        } finally {
+            setLoading(false);
         }
-    ];
+    };
+
+    const handleDecision = async (claimId, decision) => {
+        if (!remarks.trim()) {
+            alert('Please provide remarks for your decision');
+            return;
+        }
+
+        setProcessing(claimId);
+        try {
+            await api.put(`/v1/admin/claims/${claimId}/decision`, {
+                decision,
+                remarks,
+            });
+            
+            // Update local state
+            setClaims(claims.map(c => 
+                c._id === claimId ? { ...c, status: decision } : c
+            ));
+            setSelectedClaim(null);
+            setRemarks('');
+        } catch (error) {
+            console.error('Failed to process claim:', error);
+            alert('Failed to process claim');
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'approved': return 'bg-green-500/10 text-green-400 border-green-500/30';
+            case 'rejected': return 'bg-red-500/10 text-red-400 border-red-500/30';
+            case 'pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+            case 'conflict': return 'bg-orange-500/10 text-orange-400 border-orange-500/30';
+            default: return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+        }
+    };
+
+    const getConfidenceColor = (tier) => {
+        switch (tier) {
+            case 'full': return 'text-green-400';
+            case 'partial': return 'text-yellow-400';
+            case 'low': return 'text-red-400';
+            default: return 'text-slate-400';
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-            <nav className="fixed top-0 w-full h-20 bg-slate-950/50 backdrop-blur-xl border-b border-slate-800/30 z-50 flex items-center px-6 md:px-12 justify-between">
-                <Link to="/admin" className="flex items-center gap-2 text-slate-400 hover:text-white transition-all group font-bold text-sm tracking-tight uppercase">
-                    <div className="p-2 bg-slate-900 rounded-xl group-hover:bg-primary-500/10 group-hover:text-primary-400 transition-all">
-                        <ArrowLeft size={18} />
+        <div className="min-h-screen bg-[#020617] p-8">
+            <div className="max-w-6xl mx-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <Link
+                            to="/admin"
+                            className="flex items-center gap-2 text-slate-400 hover:text-white mb-2 transition-colors"
+                        >
+                            <ArrowLeft size={20} />
+                            Back to Admin
+                        </Link>
+                        <h1 className="text-3xl font-bold text-white">Claims Management</h1>
+                        <p className="text-slate-400 mt-1">Review and process ownership claims</p>
                     </div>
-                    Nexus Governance
-                </Link>
-                <div className="flex items-center gap-4">
-                    <History size={20} className="text-slate-600 cursor-pointer hover:text-white transition-all" />
-                    <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center font-black text-[10px]">AD</div>
                 </div>
-            </nav>
 
-            <main className="max-w-7xl mx-auto pt-32 px-6 pb-20 relative z-10">
-                <header className="mb-12">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-orange-500/10 text-orange-400 rounded-2xl border border-orange-500/20">
-                            <Scale size={32} />
-                        </div>
-                        <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic text-shadow-glow">Resolution Pipeline</h1>
+                {/* Filters */}
+                <div className="flex gap-2 mb-6">
+                    {['all', 'pending', 'approved', 'rejected', 'conflict'].map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all capitalize ${
+                                filter === f
+                                    ? 'bg-primary-500 text-white'
+                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Claims List */}
+                {claims.length === 0 ? (
+                    <div className="text-center py-20">
+                        <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-white mb-2">No claims found</h3>
+                        <p className="text-slate-400">No claims matching your filter</p>
                     </div>
-                    <p className="text-slate-400 text-lg font-medium max-w-2xl">High-fidelity ownership arbitration. AI analysis provided for each claim conflict.</p>
-                </header>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    <div className="lg:col-span-12">
-                        <div className="flex gap-4 mb-8">
-                            <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-orange-400 flex items-center gap-2">
-                                <AlertTriangle size={14} /> 2 CONFLICTS DETECTED
-                            </div>
-                            <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                12 PENDING RESOLUTION
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Claims List */}
-                    <div className="lg:col-span-5 space-y-4">
-                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4 ml-2">Active Claim Queue</h3>
+                ) : (
+                    <div className="space-y-4">
                         {claims.map((claim) => (
-                            <motion.div
-                                key={claim.id}
-                                onClick={() => setSelectedClaim(claim)}
-                                whileHover={{ x: 5 }}
-                                className={`p-6 rounded-[2rem] border transition-all cursor-pointer group relative overflow-hidden backdrop-blur-sm ${selectedClaim?.id === claim.id ? 'bg-primary-500/10 border-primary-500/50 shadow-xl shadow-primary-500/10' : 'bg-slate-900/40 border-slate-800/50 hover:border-slate-700'}`}
+                            <div
+                                key={claim._id}
+                                className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400">
-                                            <ShieldCheck size={20} />
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getStatusColor(claim.status)}`}>
+                                                {claim.status}
+                                            </span>
+                                            <span className={`text-sm ${getConfidenceColor(claim.confidenceTier)}`}>
+                                                Confidence: {claim.confidenceTier}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <h4 className="font-black text-white text-sm uppercase tracking-tight">{claim.item}</h4>
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{claim.id}</p>
+
+                                        <h3 className="text-lg font-semibold text-white mb-2">
+                                            Claim for: {claim.itemId?.trackingId || 'Item'}
+                                        </h3>
+
+                                        <div className="flex items-center gap-4 text-slate-400 text-sm mb-4">
+                                            <div className="flex items-center gap-1">
+                                                <User size={14} />
+                                                {claim.claimantId?.profile?.fullName || 'Unknown'}
+                                            </div>
+                                            <span>•</span>
+                                            <span>{new Date(claim.submittedAt).toLocaleDateString()}</span>
+                                        </div>
+
+                                        {/* Ownership Proofs */}
+                                        <div className="mb-4">
+                                            <p className="text-slate-400 text-sm mb-2">Ownership Proofs:</p>
+                                            <div className="space-y-2">
+                                                {claim.ownershipProofs?.map((proof, index) => (
+                                                    <div key={index} className="p-3 bg-slate-800/50 rounded-lg text-slate-300 text-sm">
+                                                        {proof}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                    <span className={`text-[8px] font-black px-2 py-1 rounded-full border ${claim.status === 'CONFLICT' ? 'border-orange-500/30 text-orange-400 bg-orange-500/5' : 'border-blue-500/30 text-blue-400 bg-blue-500/5'} tracking-widest`}>
-                                        {claim.status}
-                                    </span>
+
+                                    {/* Actions */}
+                                    {claim.status === 'pending' && (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setSelectedClaim(claim._id)}
+                                                className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors"
+                                            >
+                                                Review
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.1em]">
-                                    <div className="flex items-center gap-2 text-slate-400">
-                                        <User size={12} /> {claim.claimant}
+
+                                {/* Decision Form */}
+                                {selectedClaim === claim._id && (
+                                    <div className="mt-4 pt-4 border-t border-slate-800">
+                                        <textarea
+                                            value={remarks}
+                                            onChange={(e) => setRemarks(e.target.value)}
+                                            placeholder="Enter your remarks for this decision..."
+                                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 resize-none mb-4"
+                                            rows={3}
+                                        />
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => handleDecision(claim._id, 'approved')}
+                                                disabled={processing === claim._id}
+                                                className="flex-1 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                {processing === claim._id ? (
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                ) : (
+                                                    <Check size={18} />
+                                                )}
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => handleDecision(claim._id, 'rejected')}
+                                                disabled={processing === claim._id}
+                                                className="flex-1 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                {processing === claim._id ? (
+                                                    <Loader2 size={18} className="animate-spin" />
+                                                ) : (
+                                                    <X size={18} />
+                                                )}
+                                                Reject
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedClaim(null);
+                                                    setRemarks('');
+                                                }}
+                                                className="px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-primary-400">
-                                        <Sparkles size={12} /> {claim.confidence}% MATCH
-                                    </div>
-                                </div>
-                            </motion.div>
+                                )}
+                            </div>
                         ))}
                     </div>
-
-                    {/* Comparison UI */}
-                    <div className="lg:col-span-7">
-                        <AnimatePresence mode="wait">
-                            {selectedClaim ? (
-                                <motion.div
-                                    key={selectedClaim.id}
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-slate-900/40 border border-slate-800/50 rounded-[3rem] p-10 h-full backdrop-blur-xl relative overflow-hidden"
-                                >
-                                    <div className="absolute top-0 right-0 p-8">
-                                        <Sparkles className="text-primary-500/20" size={120} />
-                                    </div>
-
-                                    <div className="relative z-10 h-full flex flex-col">
-                                        <div className="flex items-center gap-4 mb-8">
-                                            <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">Decision Matrix</h3>
-                                            <div className="h-px flex-1 bg-slate-800"></div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-8 mb-10 text-shadow-none">
-                                            <div className="space-y-6">
-                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                                    <FileText size={14} className="text-primary-500" /> Submitted Proof
-                                                </p>
-                                                <div className="p-6 bg-slate-950 border border-slate-800 rounded-2xl text-xs font-bold text-slate-300 leading-relaxed italic">
-                                                    "{selectedClaim.proof}"
-                                                </div>
-                                            </div>
-                                            <div className="space-y-6">
-                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                                    <Sparkles size={14} className="text-primary-500" /> AI Neural Check
-                                                </p>
-                                                <div className="space-y-4">
-                                                    <div className="flex justify-between items-end">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Similarity Score</span>
-                                                        <span className="text-lg font-black text-primary-400">{selectedClaim.confidence}%</span>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden p-[1px]">
-                                                        <motion.div
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${selectedClaim.confidence}%` }}
-                                                            className="h-full bg-primary-500 rounded-full"
-                                                        />
-                                                    </div>
-                                                    <p className="text-[8px] font-black text-green-500/70 uppercase tracking-[0.2em]">Verified: Detail Match confirmed by Neural Engine</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-auto pt-10 border-t border-slate-800 flex gap-4">
-                                            <button className="flex-1 py-5 bg-green-600/10 border border-green-500/20 text-green-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-green-600 hover:text-white transition-all flex items-center justify-center gap-2 group shadow-xl">
-                                                Approve Claim <CheckCircle2 size={16} />
-                                            </button>
-                                            <button className="flex-1 py-5 bg-red-600/10 border border-red-500/20 text-red-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 group shadow-xl">
-                                                Reject Claim <XCircle size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center bg-slate-900/20 border border-slate-800 border-dashed rounded-[3rem] p-20 text-center opacity-50 grayscale">
-                                    <Scale size={80} className="text-slate-700 mb-6" />
-                                    <h3 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2">Awaiting Selection</h3>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">SELECT A CLAIM FROM THE QUEUE TO INITIALIZE ARBITRATION</p>
-                                </div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-            </main>
+                )}
+            </div>
         </div>
     );
 };

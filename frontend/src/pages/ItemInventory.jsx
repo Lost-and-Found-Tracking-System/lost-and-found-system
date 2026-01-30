@@ -1,194 +1,265 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, ArrowUpDown, MapPin, Calendar, Tag, ChevronDown, Package, Clock, ShieldCheck, ArrowLeft, SlidersHorizontal, Grid, List as ListIcon } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import api from '../services/api';
+import {
+    Search,
+    Filter,
+    Grid,
+    List,
+    MapPin,
+    Calendar,
+    Loader2,
+    Package,
+} from 'lucide-react';
+
+const CATEGORIES = [
+    'All', 'Electronics', 'Documents', 'Accessories', 'Clothing',
+    'Books', 'Keys', 'Bags', 'Sports Equipment', 'Other'
+];
 
 const ItemInventory = () => {
-    const [searchQuery, setSearchQuery] = useState('');
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('grid');
-    const [filterOpen, setFilterOpen] = useState(false);
+    const [filters, setFilters] = useState({
+        search: '',
+        category: 'All',
+        type: 'all', // all, lost, found
+    });
 
-    // Mock Database
-    const items = [
-        { id: 'TRK-928XJ', title: 'MacBook Air M2', loc: 'Main Library', date: '2026-01-25', type: 'LOST', category: 'Electronics', color: 'bg-red-500' },
-        { id: 'TRK-102LA', title: 'HydroFlask White', loc: 'Gym Area', date: '2026-01-27', type: 'FOUND', category: 'Accessories', color: 'bg-green-500' },
-        { id: 'TRK-445PP', title: 'ID Card - 21CSE', loc: 'Block 2', date: '2026-01-28', type: 'FOUND', category: 'Essentials', color: 'bg-green-500' },
-        { id: 'TRK-772QQ', title: 'Noise Headphones', loc: 'Canteen', date: '2026-01-24', type: 'LOST', category: 'Electronics', color: 'bg-red-500' },
-        { id: 'TRK-881WW', title: 'Reading Glasses', loc: 'Garden area', date: '2026-01-26', type: 'LOST', category: 'Personal', color: 'bg-red-500' },
-        { id: 'TRK-119OO', title: 'Key Bundle (3)', loc: 'Innovation Lab', date: '2026-01-28', type: 'FOUND', category: 'Essentials', color: 'bg-green-500' },
-    ];
+    useEffect(() => {
+        fetchItems();
+    }, [filters.category, filters.type]);
 
-    const filteredItems = items.filter(i =>
-        i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const fetchItems = async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (filters.category !== 'All') {
+                params.append('category', filters.category);
+            }
+            if (filters.type !== 'all') {
+                params.append('submissionType', filters.type);
+            }
+            params.append('limit', '50');
+
+            const res = await api.get(`/v1/items?${params.toString()}`);
+            setItems(res.data);
+        } catch (error) {
+            console.error('Failed to fetch items:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredItems = items.filter(item => {
+        if (filters.search) {
+            const searchLower = filters.search.toLowerCase();
+            return (
+                item.itemAttributes?.description?.toLowerCase().includes(searchLower) ||
+                item.itemAttributes?.category?.toLowerCase().includes(searchLower) ||
+                item.trackingId?.toLowerCase().includes(searchLower)
+            );
+        }
+        return true;
+    });
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'resolved': return 'bg-green-500/10 text-green-400 border-green-500/30';
+            case 'matched': return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+            case 'submitted': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+            default: return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+        }
+    };
+
+    const getTypeColor = (type) => {
+        return type === 'lost' 
+            ? 'bg-red-500/10 text-red-400' 
+            : 'bg-green-500/10 text-green-400';
+    };
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-            {/* Background Grain */}
-            <div className="fixed inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none"></div>
-
-            <nav className="fixed top-0 w-full h-20 bg-slate-950/50 backdrop-blur-xl border-b border-slate-800/30 z-50 flex items-center px-6 md:px-12 justify-between">
-                <Link to="/dashboard" className="flex items-center gap-2 text-slate-400 hover:text-white transition-all group font-bold text-sm tracking-tight uppercase">
-                    <div className="p-2 bg-slate-900 rounded-xl group-hover:bg-primary-500/10 group-hover:text-primary-400 transition-all">
-                        <ArrowLeft size={18} />
+        <div className="min-h-screen bg-[#020617] p-8">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white">Item Inventory</h1>
+                        <p className="text-slate-400 mt-1">Browse all reported lost and found items</p>
                     </div>
-                    HQ Command
-                </Link>
-                <div className="flex items-center gap-6">
-                    <div className="hidden md:flex items-center gap-3">
-                        <Grid
-                            size={20}
-                            className={`cursor-pointer transition-colors ${viewMode === 'grid' ? 'text-primary-500' : 'text-slate-600 hover:text-slate-400'}`}
-                            onClick={() => setViewMode('grid')}
-                        />
-                        <ListIcon
-                            size={20}
-                            className={`cursor-pointer transition-colors ${viewMode === 'list' ? 'text-primary-500' : 'text-slate-600 hover:text-slate-400'}`}
-                            onClick={() => setViewMode('list')}
-                        />
-                    </div>
-                    <div className="h-6 w-[1px] bg-slate-800"></div>
-                    <button className="flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-500/20 hover:scale-105 active:scale-95 transition-all">
-                        <Package size={16} /> Global Report
-                    </button>
-                </div>
-            </nav>
-
-            <main className="max-w-7xl mx-auto pt-32 px-6 pb-20 relative z-10">
-                <header className="mb-12">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-primary-500/10 text-primary-400 rounded-2xl border border-primary-500/20">
-                            <SlidersHorizontal size={32} />
-                        </div>
-                        <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic">Inventory Grid</h1>
-                    </div>
-                    <p className="text-slate-400 text-lg font-medium max-w-2xl">Browse, filter, and track incidents across the campus safety network.</p>
-                </header>
-
-                {/* Sub-Nav / Search & Filter */}
-                <div className="flex flex-col md:flex-row gap-6 mb-12">
-                    <div className="flex-1 relative group">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary-400 transition-colors" size={20} />
-                        <input
-                            type="text"
-                            className="w-full bg-slate-900/50 border border-slate-800 rounded-[2rem] pl-16 pr-8 py-5 text-white font-bold focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500/50 outline-none transition-all placeholder:text-slate-600 uppercase tracking-widest text-xs"
-                            placeholder="Search by Title, Category, or Tracking ID..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <button
-                        onClick={() => setFilterOpen(!filterOpen)}
-                        className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] border transition-all font-black text-xs uppercase tracking-widest ${filterOpen ? 'bg-primary-600 border-primary-500 text-white shadow-xl shadow-primary-500/20' : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white'}`}
+                    <Link
+                        to="/report"
+                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
                     >
-                        <Filter size={18} /> Advanced Filters
-                    </button>
-                    <button className="flex items-center gap-3 px-8 py-5 bg-slate-900/50 border border-slate-800 rounded-[2rem] text-slate-400 font-black text-xs hover:text-white transition-all uppercase tracking-widest">
-                        <ArrowUpDown size={18} /> Sort: Recent
-                    </button>
+                        Report Item
+                    </Link>
                 </div>
 
-                <AnimatePresence>
-                    {filterOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                            animate={{ opacity: 1, height: 'auto', marginBottom: 48 }}
-                            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-10 bg-slate-950/40 border border-slate-800 rounded-[2.5rem] backdrop-blur-xl">
-                                {[
-                                    { label: 'Incident Class', options: ['All', 'Lost', 'Found'] },
-                                    { label: 'Category', options: ['Electronics', 'Accessories', 'Essentials', 'Personal'] },
-                                    { label: 'Time Horizon', options: ['Last 24h', 'Last Week', 'Last Month', 'All Time'] },
-                                    { label: 'Zone Proximity', options: ['All Zones', 'Main Lab', 'Canteen', 'Hostel'] },
-                                ].map((filter, i) => (
-                                    <div key={i} className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">{filter.label}</label>
-                                        <div className="relative">
-                                            <select className="w-full bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-xs font-black text-white appearance-none outline-none focus:border-primary-500/50 transition-all uppercase tracking-widest cursor-pointer">
-                                                {filter.options.map(opt => <option key={opt}>{opt}</option>)}
-                                            </select>
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" size={14} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* Filters */}
+                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 mb-6">
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Search */}
+                        <div className="relative flex-1 min-w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
+                            <input
+                                type="text"
+                                placeholder="Search items..."
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
+                            />
+                        </div>
 
-                {/* Grid View */}
-                <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-                    <AnimatePresence>
-                        {filteredItems.map((item, i) => (
-                            <motion.div
-                                key={item.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: i * 0.05 }}
-                                className={`group bg-slate-900/40 border border-slate-800/50 rounded-[2.5rem] p-8 hover:bg-slate-900/60 hover:border-primary-500/30 transition-all cursor-pointer relative overflow-hidden backdrop-blur-sm ${viewMode === 'list' ? 'flex items-center gap-10' : ''}`}
+                        {/* Type Filter */}
+                        <div className="flex gap-2">
+                            {['all', 'lost', 'found'].map((type) => (
+                                <button
+                                    key={type}
+                                    onClick={() => setFilters({ ...filters, type })}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                                        filters.type === type
+                                            ? 'bg-primary-500 text-white'
+                                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* View Mode */}
+                        <div className="flex gap-1 bg-slate-800 rounded-lg p-1">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 rounded-lg transition-colors ${
+                                    viewMode === 'grid' ? 'bg-slate-700 text-white' : 'text-slate-400'
+                                }`}
                             >
-                                <Link to={`/item/${item.id}`} className="absolute inset-0 z-10"></Link>
-                                {/* Glow Effect */}
-                                <div className={`absolute top-0 right-0 w-24 h-24 blur-[60px] opacity-10 transition-opacity group-hover:opacity-20 ${item.color}`}></div>
+                                <Grid size={20} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-2 rounded-lg transition-colors ${
+                                    viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-400'
+                                }`}
+                            >
+                                <List size={20} />
+                            </button>
+                        </div>
+                    </div>
 
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 group-hover:bg-primary-500/10 group-hover:border-primary-500/20 transition-all">
-                                        <Tag size={20} className="text-slate-500 group-hover:text-primary-400" />
-                                    </div>
-                                    <span className={`text-[9px] font-black px-3 py-1 rounded-full border ${item.color}/20 ${item.color.replace('bg-', 'text-')} tracking-[0.2em] uppercase italic bg-slate-950/50`}>
-                                        {item.type}
+                    {/* Category Pills */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                        {CATEGORIES.map((cat) => (
+                            <button
+                                key={cat}
+                                onClick={() => setFilters({ ...filters, category: cat })}
+                                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                                    filters.category === cat
+                                        ? 'bg-primary-500 text-white'
+                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Results Count */}
+                <p className="text-slate-400 mb-4">
+                    Showing {filteredItems.length} items
+                </p>
+
+                {/* Loading */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                    </div>
+                ) : filteredItems.length === 0 ? (
+                    <div className="text-center py-20">
+                        <Package className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-white mb-2">No items found</h3>
+                        <p className="text-slate-400">Try adjusting your filters or search terms</p>
+                    </div>
+                ) : viewMode === 'grid' ? (
+                    /* Grid View */
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredItems.map((item) => (
+                            <Link
+                                key={item._id}
+                                to={`/item/${item._id}`}
+                                className="bg-slate-900/50 border border-slate-800 rounded-2xl p-5 hover:border-primary-500/50 transition-all group"
+                            >
+                                {/* Type Badge */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className={`px-2 py-1 rounded-lg text-xs font-medium uppercase ${getTypeColor(item.submissionType)}`}>
+                                        {item.submissionType}
+                                    </span>
+                                    <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor(item.status)}`}>
+                                        {item.status}
                                     </span>
                                 </div>
 
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[10px] font-mono text-primary-500 font-black tracking-tighter uppercase">{item.id}</span>
-                                        <ShieldCheck size={12} className="text-primary-500" />
-                                    </div>
-                                    <h3 className="text-2xl font-black text-white tracking-tighter uppercase italic group-hover:translate-x-1 transition-transform mb-6 leading-tight">
-                                        {item.title}
-                                    </h3>
+                                {/* Category */}
+                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-400 transition-colors">
+                                    {item.itemAttributes?.category || 'Item'}
+                                </h3>
 
-                                    <div className="flex flex-wrap gap-4 border-t border-slate-800/50 pt-6">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                            <MapPin size={12} className="text-primary-500" />
-                                            <span>{item.loc}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                            <Clock size={12} className="text-primary-500" />
-                                            <span>{item.date}</span>
-                                        </div>
+                                {/* Description */}
+                                <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+                                    {item.itemAttributes?.description || 'No description'}
+                                </p>
+
+                                {/* Meta */}
+                                <div className="space-y-2 text-sm text-slate-500">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar size={14} />
+                                        {new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString()}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin size={14} />
+                                        {item.location?.zoneId?.zoneName || 'Campus'}
                                     </div>
                                 </div>
 
-                                {viewMode === 'list' && (
-                                    <button className="px-8 py-3 bg-primary-600 rounded-xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-500/20 ml-auto">
-                                        Details
-                                    </button>
-                                )}
-                            </motion.div>
+                                {/* Tracking ID */}
+                                <div className="mt-4 pt-4 border-t border-slate-800">
+                                    <code className="text-xs text-slate-600">{item.trackingId}</code>
+                                </div>
+                            </Link>
                         ))}
-                    </AnimatePresence>
-                </div>
-
-                {filteredItems.length === 0 && (
-                    <div className="text-center py-40 bg-slate-900/20 border border-slate-800 border-dashed rounded-[4rem]">
-                        <div className="mb-6 opacity-20 flex justify-center"><Search size={80} /></div>
-                        <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-2">No Signal Detected</h3>
-                        <p className="text-slate-500 font-bold text-sm tracking-widest">NO ITEMS MATCHING YOUR SEARCH PARAMETERS WERE FOUND IN THE GRID.</p>
-                        <button
-                            onClick={() => setSearchQuery('')}
-                            className="mt-8 text-primary-500 font-black text-xs uppercase tracking-[0.3em] hover:text-white transition-colors"
-                        >
-                            Clear All Filters
-                        </button>
+                    </div>
+                ) : (
+                    /* List View */
+                    <div className="space-y-3">
+                        {filteredItems.map((item) => (
+                            <Link
+                                key={item._id}
+                                to={`/item/${item._id}`}
+                                className="flex items-center gap-4 bg-slate-900/50 border border-slate-800 rounded-xl p-4 hover:border-primary-500/50 transition-all"
+                            >
+                                <div className={`px-3 py-1 rounded-lg text-xs font-medium uppercase ${getTypeColor(item.submissionType)}`}>
+                                    {item.submissionType}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-white font-medium truncate">
+                                        {item.itemAttributes?.category} - {item.itemAttributes?.description?.slice(0, 50)}...
+                                    </h3>
+                                    <p className="text-slate-500 text-sm">{item.trackingId}</p>
+                                </div>
+                                <div className="text-slate-500 text-sm">
+                                    {new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString()}
+                                </div>
+                                <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor(item.status)}`}>
+                                    {item.status}
+                                </span>
+                            </Link>
+                        ))}
                     </div>
                 )}
-            </main>
+            </div>
         </div>
     );
 };

@@ -1,171 +1,283 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, MapPin, Save, ArrowLeft, Camera, Shield, BadgeCheck, ExternalLink, Bell } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+    User,
+    Mail,
+    Phone,
+    Building,
+    Save,
+    Loader2,
+    Bell,
+    Shield,
+    Clock,
+    CheckCircle,
+    AlertCircle,
+    ArrowLeft,
+} from 'lucide-react';
 
 const Profile = () => {
-    const { user } = useAuth();
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '+91 9876543210',
-        affiliation: user?.affiliation || 'CBE',
+    const { user, updateProfile } = useAuth();
+    const [saving, setSaving] = useState(false);
+    const [success, setSuccess] = useState('');
+    const [error, setError] = useState('');
+    const [loginActivity, setLoginActivity] = useState([]);
+    const [notifPrefs, setNotifPrefs] = useState({
+        email: true,
+        push: true,
+        sms: false,
     });
 
-    const handleSave = (e) => {
+    const [formData, setFormData] = useState({
+        fullName: user?.fullName || user?.name || '',
+        phone: user?.phone || '',
+        affiliation: user?.affiliation || '',
+    });
+
+    useEffect(() => {
+        fetchLoginActivity();
+        fetchNotificationPrefs();
+    }, []);
+
+    const fetchLoginActivity = async () => {
+        try {
+            const res = await api.get('/v1/users/login-activity');
+            setLoginActivity(res.data.slice(0, 10));
+        } catch (error) {
+            console.error('Failed to fetch login activity:', error);
+        }
+    };
+
+    const fetchNotificationPrefs = async () => {
+        try {
+            const res = await api.get('/v1/users/notification-preferences');
+            if (res.data?.channels) {
+                setNotifPrefs(res.data.channels);
+            }
+        } catch (error) {
+            console.error('Failed to fetch notification preferences:', error);
+        }
+    };
+
+    const handleProfileUpdate = async (e) => {
         e.preventDefault();
-        alert('Profile sync complete (Local Mode)');
+        setSaving(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            await updateProfile(formData);
+            setSuccess('Profile updated successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+            setError(error.error || 'Failed to update profile');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleNotifPrefsUpdate = async () => {
+        try {
+            await api.put('/v1/users/notification-preferences', {
+                channels: notifPrefs
+            });
+            setSuccess('Notification preferences updated!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+            setError('Failed to update notification preferences');
+        }
+    };
+
+    const getEventIcon = (eventType) => {
+        switch (eventType) {
+            case 'success': return <CheckCircle size={16} className="text-green-400" />;
+            case 'failure': return <AlertCircle size={16} className="text-red-400" />;
+            case 'logout': return <Shield size={16} className="text-blue-400" />;
+            default: return <Clock size={16} className="text-slate-400" />;
+        }
     };
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-            {/* Background Accents */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-0 w-[50%] h-[50%] bg-blue-600/5 blur-[120px] rounded-full"></div>
-                <div className="absolute bottom-0 left-0 w-[30%] h-1/4 bg-primary-600/5 blur-[100px] rounded-full"></div>
-            </div>
+        <div className="min-h-screen bg-[#020617] p-8">
+            <div className="max-w-4xl mx-auto">
+                {/* Back Button */}
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
+                >
+                    <ArrowLeft size={20} />
+                    Back to Dashboard
+                </button>
 
-            <nav className="fixed top-0 w-full h-20 bg-slate-950/50 backdrop-blur-xl border-b border-slate-800/30 z-50 flex items-center px-6 md:px-12 justify-between">
-                <Link to="/dashboard" className="flex items-center gap-2 text-slate-400 hover:text-white transition-all group font-bold text-sm tracking-tight uppercase">
-                    <div className="p-2 bg-slate-900 rounded-xl group-hover:bg-primary-500/10 group-hover:text-primary-400 transition-all">
-                        <ArrowLeft size={18} />
-                    </div>
-                    Dashboard
-                </Link>
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black bg-primary-500/10 text-primary-400 px-3 py-1 rounded-full border border-primary-500/20 uppercase tracking-widest">
-                        Profile Verified
-                    </span>
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
+                    <p className="text-slate-400 mt-1">Manage your account information and preferences</p>
                 </div>
-            </nav>
 
-            <main className="max-w-6xl mx-auto pt-32 px-6 pb-20 relative z-10">
-                <header className="mb-16">
-                    <h1 className="text-6xl font-black text-white tracking-tighter mb-4 italic uppercase">Identity Hub</h1>
-                    <p className="text-slate-400 text-lg font-medium max-w-2xl">Manage your institutional credentials and security configurations for the Campus Recovery Network.</p>
-                </header>
+                {/* Success/Error Messages */}
+                {success && (
+                    <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400">
+                        {success}
+                    </div>
+                )}
+                {error && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400">
+                        {error}
+                    </div>
+                )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    <div className="lg:col-span-4">
-                        <div className="bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] p-10 flex flex-col items-center text-center space-y-6 sticky top-32">
-                            <div className="relative group">
-                                <div className="w-40 h-40 rounded-[2.5rem] bg-gradient-to-tr from-primary-600 to-indigo-600 p-1 rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                                    <div className="w-full h-full rounded-[2.3rem] bg-slate-950 flex items-center justify-center text-5xl font-black border-8 border-slate-950 text-white">
-                                        {user?.name?.[0]}
+                <div className="grid lg:grid-cols-2 gap-6">
+                    {/* Profile Form */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                        <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                            <User size={20} className="text-primary-400" />
+                            Personal Information
+                        </h2>
+
+                        <form onSubmit={handleProfileUpdate} className="space-y-4">
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Full Name</label>
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        type="text"
+                                        value={formData.fullName}
+                                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Email</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        type="email"
+                                        value={user?.email || ''}
+                                        disabled
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-500 cursor-not-allowed"
+                                    />
+                                </div>
+                                <p className="text-slate-600 text-xs mt-1">Email cannot be changed</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Phone</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
+                                        placeholder="+91 XXXXX XXXXX"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-400 text-sm mb-2">Affiliation</label>
+                                <div className="relative">
+                                    <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        type="text"
+                                        value={formData.affiliation}
+                                        onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
+                                        placeholder="e.g., CSE Department"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className="w-full py-3 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 disabled:bg-primary-500/50 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {saving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Notification Preferences */}
+                    <div className="space-y-6">
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                                <Bell size={20} className="text-primary-400" />
+                                Notification Preferences
+                            </h2>
+
+                            <div className="space-y-4">
+                                {[
+                                    { key: 'email', label: 'Email Notifications', desc: 'Receive updates via email' },
+                                    { key: 'push', label: 'Push Notifications', desc: 'Browser push notifications' },
+                                    { key: 'sms', label: 'SMS Notifications', desc: 'Text message alerts' },
+                                ].map((item) => (
+                                    <div key={item.key} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl">
+                                        <div>
+                                            <p className="text-white font-medium">{item.label}</p>
+                                            <p className="text-slate-500 text-sm">{item.desc}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newPrefs = { ...notifPrefs, [item.key]: !notifPrefs[item.key] };
+                                                setNotifPrefs(newPrefs);
+                                            }}
+                                            className={`w-12 h-6 rounded-full transition-colors ${
+                                                notifPrefs[item.key] ? 'bg-primary-500' : 'bg-slate-700'
+                                            }`}
+                                        >
+                                            <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                                                notifPrefs[item.key] ? 'translate-x-6' : 'translate-x-0.5'
+                                            }`} />
+                                        </button>
                                     </div>
-                                </div>
-                                <button className="absolute -bottom-2 -right-2 p-3 bg-white text-slate-950 rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all">
-                                    <Camera size={20} />
-                                </button>
+                                ))}
                             </div>
 
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-black text-white flex items-center justify-center gap-2 uppercase tracking-tight">
-                                    {user?.name} <BadgeCheck className="text-primary-500" size={20} />
-                                </h2>
-                                <p className="text-primary-500 uppercase tracking-[0.3em] text-[10px] font-black">{user?.role} Associate</p>
-                            </div>
-
-                            <div className="w-full pt-6 space-y-3">
-                                <div className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 text-xs font-bold uppercase tracking-widest text-slate-400">
-                                    <span>Campus ID</span>
-                                    <span className="text-white">AM.EN.U4CSE21001</span>
-                                </div>
-                                <div className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 text-xs font-bold uppercase tracking-widest text-slate-400">
-                                    <span>Division</span>
-                                    <span className="text-white">{user?.affiliation}</span>
-                                </div>
-                            </div>
-
-                            <button className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2">
-                                <ExternalLink size={14} /> View Digital ID
+                            <button
+                                onClick={handleNotifPrefsUpdate}
+                                className="w-full mt-4 py-3 bg-slate-800 text-white font-semibold rounded-xl hover:bg-slate-700 transition-colors"
+                            >
+                                Update Preferences
                             </button>
                         </div>
-                    </div>
 
-                    <div className="lg:col-span-8">
-                        <form className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/50 rounded-[2.5rem] p-10 space-y-10" onSubmit={handleSave}>
-                            <div className="space-y-8">
-                                <div className="flex items-center gap-4 text-white font-black tracking-tighter text-xl uppercase italic">
-                                    <Shield size={24} className="text-primary-500" />
-                                    Personal Credentials
-                                </div>
+                        {/* Login Activity */}
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                                <Shield size={20} className="text-primary-400" />
+                                Recent Login Activity
+                            </h2>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {[
-                                        { label: 'Display Name', icon: User, key: 'name', type: 'text' },
-                                        { label: 'Institutional Email', icon: Mail, key: 'email', type: 'email', disabled: true },
-                                        { label: 'Encryption Key (Phone)', icon: Phone, key: 'phone', type: 'tel' },
-                                        { label: 'Zone Proximity', icon: MapPin, key: 'affiliation', type: 'select', options: ['CBE', 'BLR', 'AMRT'] },
-                                    ].map((field) => (
-                                        <div key={field.key} className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-                                                <field.icon size={12} className="text-primary-500" /> {field.label}
-                                            </label>
-                                            {field.type === 'select' ? (
-                                                <select
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white font-bold focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500/50 outline-none appearance-none"
-                                                    value={formData[field.key]}
-                                                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                                                >
-                                                    {field.options.map(opt => <option key={opt} value={opt}>{opt} Campus</option>)}
-                                                </select>
-                                            ) : (
-                                                <input
-                                                    type={field.type}
-                                                    disabled={field.disabled}
-                                                    className={`w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white font-bold focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500/50 outline-none transition-all ${field.disabled ? 'opacity-50 cursor-not-allowed border-dashed' : ''}`}
-                                                    value={formData[field.key]}
-                                                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
-                                                />
-                                            )}
+                            {loginActivity.length === 0 ? (
+                                <p className="text-slate-500 text-center py-4">No recent activity</p>
+                            ) : (
+                                <div className="space-y-3 max-h-64 overflow-y-auto">
+                                    {loginActivity.map((activity, index) => (
+                                        <div key={index} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl">
+                                            {getEventIcon(activity.eventType)}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-white text-sm capitalize">{activity.eventType}</p>
+                                                <p className="text-slate-500 text-xs truncate">{activity.deviceType}</p>
+                                            </div>
+                                            <p className="text-slate-500 text-xs">
+                                                {new Date(activity.timestamp).toLocaleDateString()}
+                                            </p>
                                         </div>
                                     ))}
                                 </div>
-
-                                <div className="pt-10 border-t border-slate-800">
-                                    <div className="flex items-center gap-4 text-white font-black tracking-tighter text-xl uppercase italic mb-8">
-                                        <Bell size={24} className="text-primary-500" />
-                                        Signal Preferences
-                                    </div>
-                                    <div className="space-y-6">
-                                        {[
-                                            { label: 'Neural Match Alerts', desc: 'Notify when AI detects a potential item correlate' },
-                                            { label: 'Claim Status Updates', desc: 'Real-time alerts for ownership arbitration verdicts' },
-                                            { label: 'Campus Announcements', desc: 'Broad-spectrum updates from campus security' }
-                                        ].map((pref, i) => (
-                                            <div key={i} className="flex items-center justify-between p-6 bg-slate-950 rounded-[2rem] border border-slate-800">
-                                                <div>
-                                                    <p className="text-sm font-black text-white uppercase tracking-tight">{pref.label}</p>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{pref.desc}</p>
-                                                </div>
-                                                <div className="w-12 h-6 bg-primary-600 rounded-full relative cursor-pointer shadow-[0_0_15px_rgba(14,165,233,0.3)]">
-                                                    <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-10 border-t border-slate-800 flex flex-col sm:flex-row gap-4">
-                                <button
-                                    type="submit"
-                                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-500 hover:to-blue-500 text-white font-black px-10 py-5 rounded-3xl transition-all shadow-2xl shadow-primary-500/20 uppercase tracking-widest text-xs group active:scale-95"
-                                >
-                                    <Save size={18} className="group-hover:rotate-12 transition-transform" />
-                                    Synchronize Profile
-                                </button>
-                                <button type="button" className="px-10 py-5 bg-slate-800 text-slate-400 font-black rounded-3xl hover:bg-slate-700 hover:text-white transition-all uppercase tracking-widest text-xs active:scale-95">
-                                    Reset Access
-                                </button>
-                            </div>
-                        </form>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };
