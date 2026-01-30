@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# vite cache
+.vite/
+
+# env files
+.env
+*.local
+
+# OS junk
+.DS_Store
