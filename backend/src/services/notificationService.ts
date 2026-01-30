@@ -1,8 +1,11 @@
 // Notification Service
-// Handles creating and dispatching notifications
+// Production-ready notification handling with email dispatch
 
 import { NotificationModel, NotificationPreferencesModel, UserModel } from '../models/index.js'
 import { Types } from 'mongoose'
+import { sendNotificationEmail, sendSecurityAlertEmail } from './emailService.js'
+import { sendClaimStatusSms, sendSecurityAlertSms } from './smsService.js'
+import { queueEmail, queueSms } from './schedulers.js'
 
 export type NotificationType =
     | 'item_match_found'
@@ -46,19 +49,40 @@ export async function sendNotification(payload: NotificationPayload): Promise<bo
             createdAt: new Date(),
         })
 
+        // Get user details for email/SMS
+        const user = await UserModel.findById(payload.userId).select('profile')
+        if (!user?.profile) {
+            return true // In-app notification created, but can't send email/SMS
+        }
+
+        const userEmail = user.profile.email as string | undefined
+        const userPhone = user.profile.phone as string | undefined
+
         // Check if email notifications are enabled
-        if (prefs?.emailEnabled ?? true) {
-            // Check type-specific preferences
-            const shouldSendEmail =
-                (payload.type.includes('item') && prefs?.itemUpdates !== false) ||
+        const emailEnabled = prefs?.emailEnabled ?? true
+        const smsEnabled = prefs?.smsEnabled ?? false
+
+        // Determine if we should send email based on notification type
+        const shouldSendEmail =
+            emailEnabled &&
+            ((payload.type.includes('item') && prefs?.itemUpdates !== false) ||
                 (payload.type.includes('claim') && prefs?.claimUpdates !== false) ||
                 (payload.type === 'system_announcement' && prefs?.systemAnnouncements !== false) ||
-                (payload.type === 'security_alert') // Always send security alerts
+                payload.type === 'security_alert') // Always notify security alerts
 
-            if (shouldSendEmail) {
-                // Queue email dispatch
-                await queueEmailNotification(payload.userId, payload.title, payload.message)
-            }
+        if (shouldSendEmail && userEmail) {
+            // Queue email for sending
+            await queueEmail(userEmail, payload.title, `<p>${payload.message}</p>`)
+        }
+
+        // Send SMS for high-priority notifications
+        const shouldSendSms =
+            smsEnabled &&
+            userPhone &&
+            (payload.priority === 'high' || payload.priority === 'urgent' || payload.type === 'security_alert')
+
+        if (shouldSendSms && userPhone) {
+            await queueSms(userPhone, payload.message)
         }
 
         return true
@@ -95,28 +119,6 @@ export async function sendBulkNotification(
 }
 
 /**
- * Queue email notification (placeholder)
- * In production, integrate with email service (SendGrid, SES, etc.)
- */
-async function queueEmailNotification(userId: string, subject: string, body: string): Promise<void> {
-    // Get user email
-    const user = await UserModel.findById(userId).select('profile.email')
-    if (!user?.profile?.email) {
-        console.warn(`No email found for user ${userId}`)
-        return
-    }
-
-    // Placeholder - log email that would be sent
-    console.log(`📧 EMAIL QUEUED:`)
-    console.log(`   To: ${user.profile.email}`)
-    console.log(`   Subject: ${subject}`)
-    console.log(`   Body: ${body.substring(0, 100)}...`)
-
-    // In production:
-    // await emailQueue.add({ to: user.profile.email, subject, body })
-}
-
-/**
  * Send item match notification
  */
 export async function notifyItemMatch(
@@ -143,13 +145,13 @@ export async function notifyClaimStatus(
     status: 'approved' | 'rejected',
     notes?: string
 ): Promise<void> {
-    const title = status === 'approved'
-        ? 'Claim Approved! 🎉'
-        : 'Claim Update'
+    const title =
+        status === 'approved' ? 'Claim Approved! 🎉' : 'Claim Update'
 
-    const message = status === 'approved'
-        ? `Your claim for item ${itemTrackingId} has been approved! Please visit the Lost and Found office to collect your item.`
-        : `Your claim for item ${itemTrackingId} was not approved. ${notes || 'Please contact the Lost and Found office for more information.'}`
+    const message =
+        status === 'approved'
+            ? `Your claim for item ${itemTrackingId} has been approved! Please visit the Lost and Found office to collect your item.`
+            : `Your claim for item ${itemTrackingId} was not approved. ${notes || 'Please contact the Lost and Found office for more information.'}`
 
     await sendNotification({
         userId,
@@ -159,6 +161,15 @@ export async function notifyClaimStatus(
         data: { itemTrackingId, notes },
         priority: status === 'approved' ? 'high' : 'normal',
     })
+
+    // Also send SMS for claim approval
+    if (status === 'approved') {
+        const user = await UserModel.findById(userId).select('profile.phone')
+        const userPhone = user?.profile?.phone as string | undefined
+        if (userPhone) {
+            await sendClaimStatusSms(userPhone, itemTrackingId, status)
+        }
+    }
 }
 
 /**
@@ -177,4 +188,44 @@ export async function sendSecurityAlert(
         data: { alertType },
         priority: 'urgent',
     })
+
+    // Send direct email and SMS for security alerts
+    const user = await UserModel.findById(userId).select('profile')
+    const userEmail = user?.profile?.email as string | undefined
+    const userPhone = user?.profile?.phone as string | undefined
+
+    if (userEmail) {
+        await sendSecurityAlertEmail(userEmail, alertType, details)
+    }
+    if (userPhone) {
+        await sendSecurityAlertSms(userPhone, alertType)
+    }
+}
+
+/**
+ * Send system-wide announcement
+ */
+export async function sendSystemAnnouncement(
+    title: string,
+    message: string,
+    targetRoles?: string[],
+    targetLocation?: string
+): Promise<number> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query: any = { status: 'active' }
+
+    if (targetRoles && targetRoles.length > 0) {
+        query.role = { $in: targetRoles }
+    }
+
+    const users = await UserModel.find(query).select('_id')
+    const userIds = users.map((u) => u._id.toString())
+
+    return sendBulkNotification(
+        userIds,
+        'system_announcement',
+        title,
+        message,
+        { targetRoles, targetLocation }
+    )
 }

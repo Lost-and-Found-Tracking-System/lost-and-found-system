@@ -9,6 +9,14 @@ import type { AuthRequest } from '../../middleware/auth.js'
 import { LoginSessionModel, LoginActivityLogModel, UserModel } from '../../models/index.js'
 import { Types } from 'mongoose'
 import crypto from 'crypto'
+import {
+  initiateVisitorRegistration,
+  completeVisitorRegistration,
+  initiatePasswordReset,
+  verifyOtp,
+} from '../../services/otpService.js'
+import { sendSecurityAlert } from '../../services/notificationService.js'
+import argon2 from 'argon2'
 
 export const authRouter = Router()
 
@@ -84,10 +92,13 @@ authRouter.post('/login', validateRequest(loginSchema), async (req, res, next) =
         timestamp: new Date(),
       })
 
-      // Check if we should send notification
+      // Send security notification if threshold exceeded
       if (user.credentials.failedLoginAttempts >= FAILED_LOGIN_THRESHOLD) {
-        // TODO: Send security notification email
-        console.log(`🔒 SECURITY ALERT: Multiple failed login attempts for ${req.body.email}`)
+        await sendSecurityAlert(
+          user._id.toString(),
+          'Multiple Failed Login Attempts',
+          `We detected ${user.credentials.failedLoginAttempts} failed login attempts on your account. If this wasn't you, please secure your account immediately.`
+        )
       }
     }
     next(error instanceof Error ? createApiError(401, error.message) : error)
@@ -124,7 +135,7 @@ authRouter.post('/logout', authMiddleware, async (req: AuthRequest, res: Respons
 
     res.clearCookie('refreshToken')
     res.json({ message: 'Logged out successfully' })
-  } catch (error) {
+  } catch (_error) {
     res.clearCookie('refreshToken')
     res.json({ message: 'Logged out successfully' })
   }
@@ -149,7 +160,7 @@ authRouter.post('/logout-all', authMiddleware, async (req: AuthRequest, res: Res
   }
 })
 
-authRouter.post('/refresh', (req: AuthRequest, res: Response, next) => {
+authRouter.post('/refresh', async (req: AuthRequest, res: Response, next) => {
   try {
     const refreshToken = req.cookies.refreshToken
 
@@ -157,11 +168,203 @@ authRouter.post('/refresh', (req: AuthRequest, res: Response, next) => {
       throw createApiError(401, 'No refresh token provided')
     }
 
-    // Verify and generate new tokens
-    // TODO: Implement refresh logic
-    res.json({ accessToken: 'new-token' })
+    // Verify the refresh token
+    const { verifyRefreshToken, signAccessToken } = await import('../../utils/jwt.js')
+    const payload = verifyRefreshToken(refreshToken)
+
+    if (!payload) {
+      throw createApiError(401, 'Invalid or expired refresh token')
+    }
+
+    // Verify user still exists and is active
+    const user = await UserModel.findById(payload.userId)
+    if (!user || user.status !== 'active') {
+      throw createApiError(401, 'User not found or inactive')
+    }
+
+    // Generate new access token
+    const newAccessToken = signAccessToken({
+      userId: payload.userId,
+      role: user.role,
+    })
+
+    res.json({ accessToken: newAccessToken })
   } catch (error) {
     next(error)
   }
 })
+
+// ============ VISITOR REGISTRATION (Phone-based OTP) ============
+
+/**
+ * POST /api/v1/auth/visitor/request-otp
+ * Request OTP for visitor registration via phone
+ */
+authRouter.post('/visitor/request-otp', async (req, res, next) => {
+  try {
+    const { phone } = req.body
+
+    if (!phone) {
+      throw createApiError(400, 'Phone number is required')
+    }
+
+    await initiateVisitorRegistration(phone)
+
+    res.json({
+      message: 'OTP sent to your phone number',
+      expiresIn: 600, // 10 minutes
+    })
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
+/**
+ * POST /api/v1/auth/visitor/verify
+ * Complete visitor registration by verifying phone OTP
+ */
+authRouter.post('/visitor/verify', async (req, res, next) => {
+  try {
+    const { phone, fullName, email, otp } = req.body
+
+    if (!phone || !fullName || !otp) {
+      throw createApiError(400, 'Phone, full name, and OTP are required')
+    }
+
+    const result = await completeVisitorRegistration({
+      phone,
+      fullName,
+      email,
+      otp,
+    })
+
+    res.status(201).json({
+      message: 'Visitor registration successful',
+      userId: result.userId,
+      expiresAt: result.expiresAt,
+      note: 'Your temporary account will expire in 24 hours',
+    })
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
+// ============ PASSWORD RESET (Email-based OTP) ============
+
+/**
+ * POST /api/v1/auth/forgot-password
+ * Request password reset OTP via email
+ */
+authRouter.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body
+
+    if (!email) {
+      throw createApiError(400, 'Email is required')
+    }
+
+    await initiatePasswordReset(email)
+
+    // Always return success to prevent email enumeration
+    res.json({
+      message: 'If an account exists with this email, you will receive a password reset OTP',
+      expiresIn: 600,
+    })
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
+/**
+ * POST /api/v1/auth/verify-reset-otp
+ * Verify the password reset OTP
+ */
+authRouter.post('/verify-reset-otp', async (req, res, next) => {
+  try {
+    const { email, otp } = req.body
+
+    if (!email || !otp) {
+      throw createApiError(400, 'Email and OTP are required')
+    }
+
+    const isValid = await verifyOtp(email, otp, 'password_reset')
+
+    if (!isValid) {
+      throw createApiError(400, 'Invalid or expired OTP')
+    }
+
+    // Generate a temporary reset token
+    const resetToken = crypto.randomBytes(32).toString('hex')
+
+    // Store reset token temporarily (using Redis would be better)
+    await UserModel.updateOne(
+      { 'profile.email': email },
+      {
+        passwordResetToken: crypto.createHash('sha256').update(resetToken).digest('hex'),
+        passwordResetExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+      }
+    )
+
+    res.json({
+      message: 'OTP verified successfully',
+      resetToken,
+    })
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
+/**
+ * POST /api/v1/auth/reset-password
+ * Reset password using the reset token
+ */
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    const { resetToken, newPassword } = req.body
+
+    if (!resetToken || !newPassword) {
+      throw createApiError(400, 'Reset token and new password are required')
+    }
+
+    if (newPassword.length < 8) {
+      throw createApiError(400, 'Password must be at least 8 characters')
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex')
+
+    const user = await UserModel.findOne({
+      passwordResetToken: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+    })
+
+    if (!user) {
+      throw createApiError(400, 'Invalid or expired reset token')
+    }
+
+    // Hash new password
+    const passwordHash = await argon2.hash(newPassword)
+
+    // Update password and clear reset token
+    await UserModel.updateOne(
+      { _id: user._id },
+      {
+        'credentials.passwordHash': passwordHash,
+        'credentials.passwordUpdatedAt': new Date(),
+        'credentials.failedLoginAttempts': 0,
+        $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
+      }
+    )
+
+    // Invalidate all existing sessions
+    await LoginSessionModel.updateMany(
+      { userId: user._id, invalidatedAt: { $exists: false } },
+      { invalidatedAt: new Date() }
+    )
+
+    res.json({ message: 'Password reset successful. Please login with your new password.' })
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
 
