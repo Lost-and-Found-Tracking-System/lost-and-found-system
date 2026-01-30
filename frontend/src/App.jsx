@@ -48,20 +48,15 @@ const App = () => {
                     <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
 
                     {/* Admin Protected Routes */}
-                    <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-                    <Route path="/admin/roles" element={<ProtectedRoute allowedRoles={['admin']}><RoleManagement /></ProtectedRoute>} />
-                    <Route path="/admin/claims" element={<ProtectedRoute allowedRoles={['admin']}><AdminClaims /></ProtectedRoute>} />
-                    <Route path="/admin/ai-config" element={<ProtectedRoute allowedRoles={['admin']}><AIConfig /></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'delegated_admin']}><AdminDashboard /></ProtectedRoute>} />
+                    <Route path="/admin/roles" element={<ProtectedRoute allowedRoles={['admin', 'delegated_admin']}><RoleManagement /></ProtectedRoute>} />
+                    <Route path="/admin/claims" element={<ProtectedRoute allowedRoles={['admin', 'delegated_admin']}><AdminClaims /></ProtectedRoute>} />
+                    <Route path="/admin/ai-config" element={<ProtectedRoute allowedRoles={['admin', 'delegated_admin']}><AIConfig /></ProtectedRoute>} />
 
-                    <Route
-                        path="/item/:id"
-                        element={
-                            <ProtectedRoute>
-                                <ItemDetails />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route path="/" element={<Navigate to="/dashboard" />} />
+                    <Route path="/item/:id" element={<ProtectedRoute><ItemDetails /></ProtectedRoute>} />
+                    
+                    {/* Catch all - redirect to home */}
+                    <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </Router>
         </AuthProvider>
