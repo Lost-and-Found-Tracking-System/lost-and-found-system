@@ -1,26 +1,63 @@
-// Redis Configuration
-// Production-ready Redis client for OTP storage, rate limiting, and caching
+// Redis Configuration with In-Memory Fallback
+// Production uses Redis; development can fall back to in-memory storage
 
 import { Redis } from 'ioredis'
 import { env } from './env.js'
 
-// Use Redis class instance
+// In-memory fallback storage
+const memoryStore = new Map<string, { value: string; expiresAt: number }>()
+
 let redisClient: Redis | null = null
+let useMemoryFallback = false
 
-export function getRedisClient(): Redis {
+function cleanupExpiredMemoryEntries(): void {
+    const now = Date.now()
+    for (const [key, entry] of memoryStore.entries()) {
+        if (entry.expiresAt <= now) {
+            memoryStore.delete(key)
+        }
+    }
+}
+
+// Run cleanup every minute
+setInterval(cleanupExpiredMemoryEntries, 60000)
+
+export function getRedisClient(): Redis | null {
+    if (useMemoryFallback) {
+        return null
+    }
+
     if (!redisClient) {
-        redisClient = new Redis(env.redis.url, {
-            maxRetriesPerRequest: 3,
-            lazyConnect: true,
-        })
+        try {
+            redisClient = new Redis(env.redis.url, {
+                maxRetriesPerRequest: 3,
+                lazyConnect: true,
+                retryStrategy: (times) => {
+                    if (times > 3) {
+                        console.warn('⚠️ Redis unavailable, switching to in-memory fallback')
+                        useMemoryFallback = true
+                        return null // Stop retrying
+                    }
+                    return Math.min(times * 100, 1000)
+                },
+            })
 
-        redisClient.on('connect', () => {
-            console.log('🔴 Redis connected')
-        })
+            redisClient.on('connect', () => {
+                console.log('🔴 Redis connected')
+                useMemoryFallback = false
+            })
 
-        redisClient.on('error', (err: Error) => {
-            console.error('Redis error:', err)
-        })
+            redisClient.on('error', (err: Error) => {
+                if (!useMemoryFallback) {
+                    console.warn('⚠️ Redis error, using in-memory fallback:', err.message)
+                    useMemoryFallback = true
+                }
+            })
+        } catch (error) {
+            console.warn('⚠️ Redis initialization failed, using in-memory fallback')
+            useMemoryFallback = true
+            return null
+        }
     }
 
     return redisClient
@@ -28,10 +65,18 @@ export function getRedisClient(): Redis {
 
 export async function closeRedis(): Promise<void> {
     if (redisClient) {
-        await redisClient.quit()
+        try {
+            await redisClient.quit()
+        } catch {
+            // Ignore errors on close
+        }
         redisClient = null
         console.log('Redis connection closed')
     }
+}
+
+export function isUsingMemoryFallback(): boolean {
+    return useMemoryFallback
 }
 
 // OTP Storage helpers
@@ -44,24 +89,65 @@ export async function storeOtp(
     otp: string,
     ttlSeconds: number
 ): Promise<void> {
-    const redis = getRedisClient()
     const key = `${OTP_PREFIX}${identifier}:${purpose}`
-    await redis.setex(key, ttlSeconds, otp)
+    const redis = getRedisClient()
+
+    if (redis && !useMemoryFallback) {
+        try {
+            await redis.setex(key, ttlSeconds, otp)
+            return
+        } catch {
+            useMemoryFallback = true
+        }
+    }
+
+    // In-memory fallback
+    memoryStore.set(key, {
+        value: otp,
+        expiresAt: Date.now() + ttlSeconds * 1000,
+    })
 }
 
 export async function getStoredOtp(
     identifier: string,
     purpose: string
 ): Promise<string | null> {
-    const redis = getRedisClient()
     const key = `${OTP_PREFIX}${identifier}:${purpose}`
-    return redis.get(key)
+    const redis = getRedisClient()
+
+    if (redis && !useMemoryFallback) {
+        try {
+            return await redis.get(key)
+        } catch {
+            useMemoryFallback = true
+        }
+    }
+
+    // In-memory fallback
+    const entry = memoryStore.get(key)
+    if (!entry) return null
+    if (entry.expiresAt <= Date.now()) {
+        memoryStore.delete(key)
+        return null
+    }
+    return entry.value
 }
 
 export async function deleteOtp(identifier: string, purpose: string): Promise<void> {
-    const redis = getRedisClient()
     const key = `${OTP_PREFIX}${identifier}:${purpose}`
-    await redis.del(key)
+    const redis = getRedisClient()
+
+    if (redis && !useMemoryFallback) {
+        try {
+            await redis.del(key)
+            return
+        } catch {
+            useMemoryFallback = true
+        }
+    }
+
+    // In-memory fallback
+    memoryStore.delete(key)
 }
 
 // Rate limiting helpers
@@ -70,17 +156,42 @@ export async function checkRateLimit(
     maxAttempts: number,
     windowSeconds: number
 ): Promise<{ allowed: boolean; remaining: number }> {
-    const redis = getRedisClient()
     const key = `${RATE_LIMIT_PREFIX}${identifier}`
+    const redis = getRedisClient()
 
-    const current = await redis.incr(key)
+    if (redis && !useMemoryFallback) {
+        try {
+            const current = await redis.incr(key)
 
-    if (current === 1) {
-        await redis.expire(key, windowSeconds)
+            if (current === 1) {
+                await redis.expire(key, windowSeconds)
+            }
+
+            const remaining = Math.max(0, maxAttempts - current)
+            return {
+                allowed: current <= maxAttempts,
+                remaining,
+            }
+        } catch {
+            useMemoryFallback = true
+        }
     }
 
-    const remaining = Math.max(0, maxAttempts - current)
+    // In-memory fallback
+    const entry = memoryStore.get(key)
+    const now = Date.now()
+    let current = 1
 
+    if (entry && entry.expiresAt > now) {
+        current = parseInt(entry.value, 10) + 1
+    }
+
+    memoryStore.set(key, {
+        value: current.toString(),
+        expiresAt: now + windowSeconds * 1000,
+    })
+
+    const remaining = Math.max(0, maxAttempts - current)
     return {
         allowed: current <= maxAttempts,
         remaining,
@@ -88,7 +199,18 @@ export async function checkRateLimit(
 }
 
 export async function resetRateLimit(identifier: string): Promise<void> {
-    const redis = getRedisClient()
     const key = `${RATE_LIMIT_PREFIX}${identifier}`
-    await redis.del(key)
+    const redis = getRedisClient()
+
+    if (redis && !useMemoryFallback) {
+        try {
+            await redis.del(key)
+            return
+        } catch {
+            useMemoryFallback = true
+        }
+    }
+
+    // In-memory fallback
+    memoryStore.delete(key)
 }

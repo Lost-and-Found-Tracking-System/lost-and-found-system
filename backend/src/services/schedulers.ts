@@ -1,26 +1,23 @@
 // Background Job Schedulers with Bull Queue
 // Production-ready job processing for data retention, reminders, and escalation
+// Falls back to direct execution when Bull/Redis unavailable
 
 import cron from 'node-cron'
-import { Types } from 'mongoose'
 import {
     dataRetentionQueue,
     reminderQueue,
     escalationQueue,
     emailQueue,
     smsQueue,
-    setupQueueListeners,
+    isQueuesEnabled,
 } from '../config/queue.js'
 import { UserModel, ClaimModel, ItemModel, ArchivedClaimModel, DraftSubmissionModel } from '../models/index.js'
 import { sendNotificationEmail } from './emailService.js'
+import { sendSms } from './smsService.js'
 
-// ============ JOB PROCESSORS ============
+// ============ JOB PROCESSOR FUNCTIONS ============
 
-/**
- * Process data retention jobs
- */
-dataRetentionQueue.process('archive-claims', async (job) => {
-    const { olderThanDays = 365 } = job.data
+async function processArchiveClaims(olderThanDays = 365): Promise<{ archivedCount: number }> {
     const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000)
 
     const claimsToArchive = await ClaimModel.find({
@@ -40,62 +37,33 @@ dataRetentionQueue.process('archive-claims', async (job) => {
     }
 
     return { archivedCount }
-})
+}
 
-dataRetentionQueue.process('cleanup-visitors', async (_job) => {
+async function processCleanupVisitors(): Promise<{ deletedCount: number }> {
     const result = await UserModel.deleteMany({
         role: 'visitor',
         'visitorMetadata.expiresAt': { $lt: new Date() },
     })
+    return { deletedCount: result.deletedCount ?? 0 }
+}
 
-    return { deletedCount: result.deletedCount }
-})
-
-dataRetentionQueue.process('cleanup-drafts', async (job) => {
-    const { olderThanDays = 30 } = job.data
+async function processCleanupDrafts(olderThanDays = 30): Promise<{ deletedCount: number }> {
     const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000)
-
     const result = await DraftSubmissionModel.deleteMany({
         updatedAt: { $lt: cutoffDate },
     })
+    return { deletedCount: result.deletedCount ?? 0 }
+}
 
-    return { deletedCount: result.deletedCount }
-})
-
-/**
- * Process reminder jobs
- */
-reminderQueue.process('pending-item-reminder', async (job) => {
-    const { itemId, userId } = job.data
-
-    const item = await ItemModel.findById(itemId)
-    const user = await UserModel.findById(userId)
-
-    const userEmail = user?.profile?.email as string | undefined
-    if (!item || !userEmail) {
-        return { skipped: true }
-    }
-
-    await sendNotificationEmail(
-        userEmail,
-        'Reminder: Item Awaiting Pickup',
-        `Your claimed item (${item.trackingId}) is ready for pickup. Please visit the Lost and Found office to collect it.`
-    )
-
-    return { sent: true }
-})
-
-reminderQueue.process('admin-pending-claims', async (_job) => {
+async function processAdminPendingReminders(): Promise<{ sentCount: number }> {
     const pendingClaimsCount = await ClaimModel.countDocuments({ status: 'pending' })
-
     if (pendingClaimsCount === 0) {
-        return { skipped: true, reason: 'No pending claims' }
+        return { sentCount: 0 }
     }
 
-    // Get admin users
     const admins = await UserModel.find({ role: { $in: ['admin', 'delegated_admin'] } })
-
     let sentCount = 0
+
     for (const admin of admins) {
         const adminEmail = admin.profile?.email as string | undefined
         if (adminEmail) {
@@ -108,173 +76,276 @@ reminderQueue.process('admin-pending-claims', async (_job) => {
         }
     }
 
-    return { pendingClaimsCount, adminNotificationsSent: sentCount }
-})
+    return { sentCount }
+}
 
-/**
- * Process escalation jobs
- */
-escalationQueue.process('escalate-overdue-claims', async (job) => {
-    const { daysOverdue = 7 } = job.data
-    const cutoffDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000)
+async function processItemReminder(itemId: string, userId: string): Promise<{ sent: boolean }> {
+    const item = await ItemModel.findById(itemId)
+    const user = await UserModel.findById(userId)
+
+    const userEmail = user?.profile?.email as string | undefined
+    if (!item || !userEmail) {
+        return { sent: false }
+    }
+
+    await sendNotificationEmail(
+        userEmail,
+        'Reminder: Item Awaiting Pickup',
+        `Your claimed item (${item.trackingId}) is ready for pickup. Please visit the Lost and Found office to collect it.`
+    )
+
+    return { sent: true }
+}
+
+async function processEscalateOverdueClaims(daysOverdue = 7): Promise<{ escalatedCount: number }> {
+    const overdueDate = new Date(Date.now() - daysOverdue * 24 * 60 * 60 * 1000)
 
     const overdueClaims = await ClaimModel.find({
         status: 'pending',
-        createdAt: { $lt: cutoffDate },
-        escalated: { $ne: true },
+        createdAt: { $lt: overdueDate },
+        'escalation.isEscalated': { $ne: true },
     })
 
     let escalatedCount = 0
     for (const claim of overdueClaims) {
         await ClaimModel.updateOne(
             { _id: claim._id },
-            { $set: { escalated: true, escalatedAt: new Date() } }
+            {
+                $set: {
+                    'escalation.isEscalated': true,
+                    'escalation.escalatedAt': new Date(),
+                    'escalation.reason': `Pending for more than ${daysOverdue} days`,
+                },
+            }
         )
         escalatedCount++
     }
 
-    // Notify senior admins
-    const seniorAdmins = await UserModel.find({ role: 'admin' })
-    for (const admin of seniorAdmins) {
-        const adminEmail = admin.profile?.email as string | undefined
-        if (adminEmail) {
-            await sendNotificationEmail(
-                adminEmail,
-                `⚠️ ${escalatedCount} Claims Escalated`,
-                `${escalatedCount} claims have been pending for more than ${daysOverdue} days and require immediate attention.`
-            )
+    if (escalatedCount > 0) {
+        const seniorAdmins = await UserModel.find({ role: 'admin' })
+        for (const admin of seniorAdmins) {
+            const adminEmail = admin.profile?.email as string | undefined
+            if (adminEmail) {
+                await sendNotificationEmail(
+                    adminEmail,
+                    `⚠️ ${escalatedCount} Claims Escalated`,
+                    `${escalatedCount} claims have been pending for more than ${daysOverdue} days and require immediate attention.`
+                )
+            }
         }
     }
 
     return { escalatedCount }
-})
+}
 
-/**
- * Process email queue
- */
-emailQueue.process(async (job) => {
-    const { to, subject, html, text } = job.data
-    const { sendEmail } = await import('./emailService.js')
-    return sendEmail({ to, subject, html, text })
-})
+// ============ SETUP BULL PROCESSORS (only if Redis available) ============
 
-/**
- * Process SMS queue
- */
-smsQueue.process(async (job) => {
-    const { to, message } = job.data
-    const { sendSms } = await import('./smsService.js')
-    return sendSms(to, message)
-})
+function setupBullProcessors(): void {
+    if (!isQueuesEnabled()) {
+        console.log('⏭️ Bull processors not set up (no Redis)')
+        return
+    }
 
-// ============ SCHEDULER INITIALIZATION ============
+    // Data Retention Queue
+    if (dataRetentionQueue) {
+        dataRetentionQueue.process('archive-claims', async (job) => {
+            return processArchiveClaims(job.data?.olderThanDays)
+        })
 
-/**
- * Initialize all schedulers with cron jobs
- */
+        dataRetentionQueue.process('cleanup-visitors', async () => {
+            return processCleanupVisitors()
+        })
+
+        dataRetentionQueue.process('cleanup-drafts', async (job) => {
+            return processCleanupDrafts(job.data?.olderThanDays)
+        })
+    }
+
+    // Reminder Queue
+    if (reminderQueue) {
+        reminderQueue.process('admin-pending-claims', async () => {
+            return processAdminPendingReminders()
+        })
+
+        reminderQueue.process('pending-item-reminder', async (job) => {
+            const { itemId, userId } = job.data
+            return processItemReminder(itemId, userId)
+        })
+    }
+
+    // Escalation Queue
+    if (escalationQueue) {
+        escalationQueue.process('overdue-claims', async (job) => {
+            return processEscalateOverdueClaims(job.data?.daysOverdue)
+        })
+    }
+
+    // Email Queue
+    if (emailQueue) {
+        emailQueue.process(async (job) => {
+            const { to, subject, html, text } = job.data
+            const { sendEmail } = await import('./emailService.js')
+            return sendEmail({ to, subject, html, text })
+        })
+    }
+
+    // SMS Queue
+    if (smsQueue) {
+        smsQueue.process(async (job) => {
+            const { to, message } = job.data
+            return sendSms(to, message)
+        })
+    }
+
+    console.log('✅ Bull job processors configured')
+}
+
+// ============ CRON SCHEDULERS ============
+
 export function initAllSchedulers(): void {
-    setupQueueListeners()
+    // Setup Bull processors if available
+    setupBullProcessors()
 
-    // Daily at midnight: Archive old claims
-    cron.schedule('0 0 * * *', () => {
+    // Daily at midnight: Data retention jobs
+    cron.schedule('0 0 * * *', async () => {
         console.log('📅 Running daily data retention jobs')
-        dataRetentionQueue.add('archive-claims', { olderThanDays: 365 })
-        dataRetentionQueue.add('cleanup-visitors', 'cleanup-visitors-job')
-        dataRetentionQueue.add('cleanup-drafts', { olderThanDays: 30 })
+
+        if (isQueuesEnabled() && dataRetentionQueue) {
+            dataRetentionQueue.add('archive-claims', { olderThanDays: 365 })
+            dataRetentionQueue.add('cleanup-visitors', {})
+            dataRetentionQueue.add('cleanup-drafts', { olderThanDays: 30 })
+        } else {
+            // Direct execution fallback
+            try {
+                const archiveResult = await processArchiveClaims()
+                console.log(`  📦 Archived ${archiveResult.archivedCount} claims`)
+                const visitorResult = await processCleanupVisitors()
+                console.log(`  👤 Cleaned up ${visitorResult.deletedCount} expired visitors`)
+                const draftResult = await processCleanupDrafts()
+                console.log(`  📝 Cleaned up ${draftResult.deletedCount} old drafts`)
+            } catch (error) {
+                console.error('Data retention job failed:', error)
+            }
+        }
     })
 
-    // Daily at 9 AM: Send admin reminders
-    cron.schedule('0 9 * * *', () => {
+    // Daily at 9 AM: Reminder jobs
+    cron.schedule('0 9 * * *', async () => {
         console.log('⏰ Running daily reminder jobs')
-        reminderQueue.add('admin-pending-claims', 'admin-pending-claims-job')
+
+        if (isQueuesEnabled() && reminderQueue) {
+            reminderQueue.add('admin-pending-claims', {})
+        } else {
+            try {
+                const result = await processAdminPendingReminders()
+                console.log(`  📧 Sent ${result.sentCount} admin reminders`)
+            } catch (error) {
+                console.error('Reminder job failed:', error)
+            }
+        }
     })
 
     // Daily at 10 AM: Escalate overdue claims
-    cron.schedule('0 10 * * *', () => {
+    cron.schedule('0 10 * * *', async () => {
         console.log('⬆️ Running escalation jobs')
-        escalationQueue.add('escalate-overdue-claims', { daysOverdue: 7 })
+
+        if (isQueuesEnabled() && escalationQueue) {
+            escalationQueue.add('overdue-claims', { daysOverdue: 7 })
+        } else {
+            try {
+                const result = await processEscalateOverdueClaims()
+                console.log(`  ⚠️ Escalated ${result.escalatedCount} claims`)
+            } catch (error) {
+                console.error('Escalation job failed:', error)
+            }
+        }
     })
 
-    console.log('✅ All background schedulers initialized with Bull queue')
+    console.log('✅ All background schedulers initialized')
 }
 
 // ============ MANUAL JOB TRIGGERS ============
 
-/**
- * Manually trigger archive of old claims
- */
-export async function triggerArchiveOldClaims(olderThanDays = 365): Promise<string> {
-    const job = await dataRetentionQueue.add('archive-claims', { olderThanDays })
-    return job.id?.toString() ?? 'unknown'
+export async function triggerDataRetention(): Promise<string> {
+    if (isQueuesEnabled() && dataRetentionQueue) {
+        const job = await dataRetentionQueue.add('archive-claims', { olderThanDays: 365 })
+        return `Job queued: ${job.id}`
+    } else {
+        const result = await processArchiveClaims()
+        return `Direct execution: archived ${result.archivedCount} claims`
+    }
 }
 
-/**
- * Manually trigger visitor cleanup
- */
-export async function triggerCleanupVisitors(): Promise<string> {
-    const job = await dataRetentionQueue.add('cleanup-visitors', {})
-    return job.id?.toString() ?? 'unknown'
+export async function triggerReminderJobs(): Promise<string> {
+    if (isQueuesEnabled() && reminderQueue) {
+        const job = await reminderQueue.add('admin-pending-claims', {})
+        return `Job queued: ${job.id}`
+    } else {
+        const result = await processAdminPendingReminders()
+        return `Direct execution: sent ${result.sentCount} reminders`
+    }
 }
 
-/**
- * Queue a pending item reminder
- */
-export async function queueItemReminder(itemId: string, userId: string): Promise<string> {
-    const job = await reminderQueue.add('pending-item-reminder', { itemId, userId })
-    return job.id?.toString() ?? 'unknown'
+export async function triggerEscalation(): Promise<string> {
+    if (isQueuesEnabled() && escalationQueue) {
+        const job = await escalationQueue.add('overdue-claims', { daysOverdue: 7 })
+        return `Job queued: ${job.id}`
+    } else {
+        const result = await processEscalateOverdueClaims()
+        return `Direct execution: escalated ${result.escalatedCount} claims`
+    }
 }
 
-/**
- * Queue an email for sending
- */
+// ============ QUEUE HELPER FUNCTIONS ============
+
 export async function queueEmail(
     to: string,
     subject: string,
     html?: string,
     text?: string
 ): Promise<string> {
-    const job = await emailQueue.add({ to, subject, html, text })
-    return job.id?.toString() ?? 'unknown'
+    if (isQueuesEnabled() && emailQueue) {
+        const job = await emailQueue.add({ to, subject, html, text })
+        return job.id?.toString() ?? 'unknown'
+    } else {
+        // Direct send fallback
+        const { sendEmail } = await import('./emailService.js')
+        await sendEmail({ to, subject, html, text })
+        return 'direct-send'
+    }
 }
 
-/**
- * Queue an SMS for sending
- */
 export async function queueSms(to: string, message: string): Promise<string> {
-    const job = await smsQueue.add({ to, message })
-    return job.id?.toString() ?? 'unknown'
+    if (isQueuesEnabled() && smsQueue) {
+        const job = await smsQueue.add({ to, message })
+        return job.id?.toString() ?? 'unknown'
+    } else {
+        // Direct send fallback
+        await sendSms(to, message)
+        return 'direct-send'
+    }
+}
+
+export async function queueItemReminder(itemId: string, userId: string): Promise<string> {
+    if (isQueuesEnabled() && reminderQueue) {
+        const job = await reminderQueue.add('pending-item-reminder', { itemId, userId })
+        return job.id?.toString() ?? 'unknown'
+    } else {
+        await processItemReminder(itemId, userId)
+        return 'direct-send'
+    }
 }
 
 // ============ LEGACY EXPORTS (for backward compatibility) ============
 
 export const initDataRetentionScheduler = (): void => {
-    console.log('📅 Data Retention Scheduler initialized with Bull queue')
+    console.log('📅 Data Retention Scheduler initialized')
 }
 
 export const initReminderScheduler = (): void => {
-    console.log('⏰ Reminder Scheduler initialized with Bull queue')
+    console.log('⏰ Reminder Scheduler initialized')
 }
 
 export const initEscalationScheduler = (): void => {
-    console.log('⬆️ Escalation Scheduler initialized with Bull queue')
-}
-
-export async function archiveOldClaims(): Promise<number> {
-    await triggerArchiveOldClaims()
-    return 0 // Returns immediately, actual count in job result
-}
-
-export async function cleanupExpiredVisitors(): Promise<number> {
-    await triggerCleanupVisitors()
-    return 0
-}
-
-export async function cleanupOldDrafts(): Promise<number> {
-    const job = await dataRetentionQueue.add('cleanup-drafts', { olderThanDays: 30 })
-    return 0
-}
-
-export async function sendPendingItemReminders(): Promise<number> {
-    await reminderQueue.add('admin-pending-claims', {})
-    return 0
+    console.log('⬆️ Escalation Scheduler initialized')
 }

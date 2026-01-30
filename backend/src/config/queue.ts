@@ -1,93 +1,79 @@
 // Bull Queue Configuration
-// Production-ready job queue for background tasks
+// Production-ready job queue for background tasks (requires Redis)
 
 import Bull from 'bull'
 import { env } from './env.js'
+import { isUsingMemoryFallback } from './redis.js'
 
-// Queue instances
-export const dataRetentionQueue = new Bull('data-retention', env.redis.url, {
-    defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        attempts: 3,
-        backoff: {
-            type: 'exponential',
-            delay: 60000, // 1 minute
-        },
-    },
+let queuesEnabled = false
+
+// Create queue factory that returns null if Redis unavailable
+function createQueue(name: string, options?: Bull.QueueOptions): Bull.Queue | null {
+    if (isUsingMemoryFallback()) {
+        return null
+    }
+
+    try {
+        queuesEnabled = true
+        return new Bull(name, env.redis.url, {
+            defaultJobOptions: {
+                removeOnComplete: 100,
+                removeOnFail: 50,
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 60000,
+                },
+                ...options?.defaultJobOptions,
+            },
+        })
+    } catch {
+        console.warn(`⚠️ Failed to create queue: ${name}`)
+        return null
+    }
+}
+
+// Queue instances (may be null if Redis unavailable)
+export const dataRetentionQueue = createQueue('data-retention')
+export const reminderQueue = createQueue('reminders', {
+    defaultJobOptions: { backoff: { type: 'exponential', delay: 30000 } },
+})
+export const escalationQueue = createQueue('escalation')
+export const emailQueue = createQueue('emails', {
+    defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 10000 } },
+})
+export const smsQueue = createQueue('sms', {
+    defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 15000 } },
 })
 
-export const reminderQueue = new Bull('reminders', env.redis.url, {
-    defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        attempts: 3,
-        backoff: {
-            type: 'exponential',
-            delay: 30000,
-        },
-    },
-})
-
-export const escalationQueue = new Bull('escalation', env.redis.url, {
-    defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        attempts: 3,
-        backoff: {
-            type: 'exponential',
-            delay: 60000,
-        },
-    },
-})
-
-export const emailQueue = new Bull('emails', env.redis.url, {
-    defaultJobOptions: {
-        removeOnComplete: 50,
-        removeOnFail: 20,
-        attempts: 5,
-        backoff: {
-            type: 'exponential',
-            delay: 10000,
-        },
-    },
-})
-
-export const smsQueue = new Bull('sms', env.redis.url, {
-    defaultJobOptions: {
-        removeOnComplete: 50,
-        removeOnFail: 20,
-        attempts: 3,
-        backoff: {
-            type: 'exponential',
-            delay: 15000,
-        },
-    },
-})
+export function isQueuesEnabled(): boolean {
+    return queuesEnabled && !isUsingMemoryFallback()
+}
 
 // Graceful shutdown
 export async function closeQueues(): Promise<void> {
-    await Promise.all([
-        dataRetentionQueue.close(),
-        reminderQueue.close(),
-        escalationQueue.close(),
-        emailQueue.close(),
-        smsQueue.close(),
-    ])
+    if (!isQueuesEnabled()) return
+
+    const queues = [dataRetentionQueue, reminderQueue, escalationQueue, emailQueue, smsQueue]
+    await Promise.all(queues.filter(Boolean).map((q) => q!.close()))
     console.log('All Bull queues closed')
 }
 
 // Queue event logging
-const queues = [
-    { name: 'data-retention', queue: dataRetentionQueue },
-    { name: 'reminders', queue: reminderQueue },
-    { name: 'escalation', queue: escalationQueue },
-    { name: 'emails', queue: emailQueue },
-    { name: 'sms', queue: smsQueue },
-]
-
 export function setupQueueListeners(): void {
+    if (!isQueuesEnabled()) return
+
+    const queues = [
+        { name: 'data-retention', queue: dataRetentionQueue },
+        { name: 'reminders', queue: reminderQueue },
+        { name: 'escalation', queue: escalationQueue },
+        { name: 'emails', queue: emailQueue },
+        { name: 'sms', queue: smsQueue },
+    ]
+
     queues.forEach(({ name, queue }) => {
+        if (!queue) return
+
         queue.on('completed', (job) => {
             console.log(`✅ [${name}] Job ${job.id} completed`)
         })
@@ -116,7 +102,20 @@ export async function getQueueStats(): Promise<Record<string, {
         failed: number
     }> = {}
 
+    if (!isQueuesEnabled()) {
+        return stats
+    }
+
+    const queues = [
+        { name: 'data-retention', queue: dataRetentionQueue },
+        { name: 'reminders', queue: reminderQueue },
+        { name: 'escalation', queue: escalationQueue },
+        { name: 'emails', queue: emailQueue },
+        { name: 'sms', queue: smsQueue },
+    ]
+
     for (const { name, queue } of queues) {
+        if (!queue) continue
         const counts = await queue.getJobCounts()
         stats[name] = {
             waiting: counts.waiting,

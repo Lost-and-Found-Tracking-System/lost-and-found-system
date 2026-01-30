@@ -1,27 +1,34 @@
 import { createApp } from './app.js'
 import { connectToDatabase } from './config/database.js'
 import { env } from './config/env.js'
-import { getRedisClient, closeRedis } from './config/redis.js'
-import { closeQueues, setupQueueListeners } from './config/queue.js'
+import { getRedisClient, closeRedis, isUsingMemoryFallback } from './config/redis.js'
+import { closeQueues, setupQueueListeners, isQueuesEnabled } from './config/queue.js'
 import { initAllSchedulers } from './services/schedulers.js'
 
 async function start() {
   // Connect to MongoDB
   await connectToDatabase()
 
-  // Initialize Redis connection
+  // Initialize Redis connection (optional - will fallback to memory if unavailable)
   try {
     const redis = getRedisClient()
-    await redis.ping()
-    console.log('✅ Redis connection verified')
+    if (redis) {
+      await redis.ping()
+      console.log('✅ Redis connection verified')
+    } else {
+      console.log('📦 Using in-memory OTP storage (Redis not available)')
+    }
   } catch (error) {
-    console.warn('⚠️ Redis not available - OTP storage will not work:', error)
-    // Continue without Redis in development
+    console.log('📦 Using in-memory OTP storage (Redis connection failed)')
   }
 
-  // Setup Bull queue event listeners
-  setupQueueListeners()
-  console.log('✅ Bull queue listeners initialized')
+  // Setup Bull queue event listeners (only if Redis is available)
+  if (!isUsingMemoryFallback()) {
+    setupQueueListeners()
+    console.log('✅ Bull queue listeners initialized')
+  } else {
+    console.log('⏭️ Bull queues disabled (requires Redis)')
+  }
 
   // Initialize background job schedulers
   initAllSchedulers()
@@ -32,6 +39,9 @@ async function start() {
   const server = app.listen(env.port, () => {
     console.info(`🚀 Server running on http://localhost:${env.port}`)
     console.info(`📝 Environment: ${env.nodeEnv}`)
+    if (isUsingMemoryFallback()) {
+      console.info('⚠️ Running in degraded mode: OTP uses in-memory storage, Bull queues disabled')
+    }
   })
 
   // Graceful shutdown
@@ -42,7 +52,9 @@ async function start() {
       console.log('HTTP server closed')
 
       // Close Redis and Bull queues
-      await closeQueues()
+      if (isQueuesEnabled()) {
+        await closeQueues()
+      }
       await closeRedis()
 
       console.log('All connections closed')
