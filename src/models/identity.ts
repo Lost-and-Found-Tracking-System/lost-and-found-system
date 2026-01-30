@@ -12,6 +12,8 @@ const credentialsSchema = new Schema({
   passwordUpdatedAt: { type: Date, required: true },
   failedLoginAttempts: { type: Number, default: 0 },
   lastFailedAttemptAt: { type: Date },
+  resetToken: { type: String },
+  resetTokenExpiry: { type: Date },
 }, { _id: false })
 
 const profileSchema = new Schema({

@@ -4,6 +4,7 @@ import { Schema, model, Types, InferSchemaType } from 'mongoose'
 const claimSchema = new Schema({
   itemId: { type: Types.ObjectId, required: true, ref: 'items' },
   claimantId: { type: Types.ObjectId, required: true, ref: 'users' },
+  claimedBy: { type: Types.ObjectId, ref: 'users' }, // Alias for claimantId, used in some contexts
   ownershipProofs: [{ type: String }],
   proofScore: { type: Number, required: true },
   status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict'] },
@@ -11,6 +12,9 @@ const claimSchema = new Schema({
   confidenceTier: { type: String, required: true, enum: ['full', 'partial', 'low'] },
   submittedAt: { type: Date, required: true },
   resolvedAt: { type: Date },
+  resolvedBy: { type: Types.ObjectId, ref: 'users' },
+  adminNotes: { type: String },
+  isAdminOverride: { type: Boolean, default: false },
 })
 
 claimSchema.index({ itemId: 1 })
