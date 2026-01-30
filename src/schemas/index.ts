@@ -189,3 +189,94 @@ export const notificationPreferencesSchema = z.object({
   }),
 })
 export type NotificationPreferencesRequest = z.infer<typeof notificationPreferencesSchema>
+
+// PROFILE UPDATE SCHEMAS
+export const updateProfileSchema = z.object({
+  email: z.string().email('Invalid email').optional(),
+  phone: z.string().optional(),
+  affiliation: z.string().optional(),
+})
+
+export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>
+
+// PASSWORD RESET SCHEMAS
+export const passwordResetRequestSchema = z.object({
+  email: z.string().email('Invalid email'),
+})
+
+export type PasswordResetRequestRequest = z.infer<typeof passwordResetRequestSchema>
+
+export const passwordResetVerifySchema = z.object({
+  email: z.string().email('Invalid email'),
+  otp: z.string().length(6, 'OTP must be 6 digits'),
+})
+
+export type PasswordResetVerifyRequest = z.infer<typeof passwordResetVerifySchema>
+
+export const passwordResetCompleteSchema = z.object({
+  email: z.string().email('Invalid email'),
+  resetToken: z.string().min(1, 'Reset token required'),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+})
+
+export type PasswordResetCompleteRequest = z.infer<typeof passwordResetCompleteSchema>
+
+// VISITOR REGISTRATION SCHEMAS
+export const visitorOtpRequestSchema = z.object({
+  email: z.string().email('Invalid email'),
+})
+
+export type VisitorOtpRequestRequest = z.infer<typeof visitorOtpRequestSchema>
+
+export const visitorRegisterSchema = z.object({
+  email: z.string().email('Invalid email'),
+  fullName: z.string().min(1, 'Full name required'),
+  phone: z.string().optional(),
+  otp: z.string().length(6, 'OTP must be 6 digits'),
+})
+
+export type VisitorRegisterRequest = z.infer<typeof visitorRegisterSchema>
+
+// ORGANIZATION SUBMISSION SCHEMAS
+export const organizationSubmissionSchema = z.object({
+  submissionType: z.enum(['lost', 'found']),
+  itemAttributes: itemAttributesSchema,
+  location: locationSchema,
+  timeMetadata: timeMetadataSchema,
+  isAnonymous: z.boolean().default(false),
+  images: z.array(z.string()).default([]),
+  organizationId: z.string().min(1, 'Organization ID required'),
+  authorizationProof: z.string().min(1, 'Authorization proof required'),
+})
+
+export type OrganizationSubmissionRequest = z.infer<typeof organizationSubmissionSchema>
+
+// DRAFT SAVE SCHEMA
+export const draftSaveSchema = z.object({
+  submissionType: z.enum(['lost', 'found']).optional(),
+  itemAttributes: z.object({
+    category: z.string().optional(),
+    color: z.string().optional(),
+    material: z.string().optional(),
+    size: z.string().optional(),
+    description: z.string().optional(),
+  }).optional(),
+  location: z.object({
+    type: z.literal('Point').optional(),
+    coordinates: z.tuple([z.number(), z.number()]).optional(),
+    zoneId: z.string().optional(),
+  }).optional(),
+  timeMetadata: z.object({
+    lostOrFoundAt: z.coerce.date().optional(),
+    reportedAt: z.coerce.date().optional(),
+  }).optional(),
+  isAnonymous: z.boolean().optional(),
+  images: z.array(z.string()).optional(),
+})
+
+export type DraftSaveRequest = z.infer<typeof draftSaveSchema>
+
