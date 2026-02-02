@@ -34,6 +34,8 @@ PORT=5000
 MONGODB_URI=mongodb://localhost:27017/lostfound
 JWT_SECRET=your-secret-key-here
 JWT_REFRESH_SECRET=your-refresh-secret-here
+
+Also see .env.example
 ```
 
 **Frontend** - Create `frontend/.env`:
@@ -211,7 +213,3 @@ lost-and-found-system/
 - **Auth:** JWT with refresh tokens
 
 ---
-
-## Team Tasks
-
-See group message for current assignments.
