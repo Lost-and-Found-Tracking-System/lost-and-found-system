@@ -40,6 +40,12 @@ export const env = {
     authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
   },
+  // Cloudinary image storage configuration
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
+    apiKey: process.env.CLOUDINARY_API_KEY ?? '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET ?? '',
+  },
 }
 
 export function assertRequiredEnv(): void {

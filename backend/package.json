@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
+    "@types/multer": "^2.0.0",
     "argon2": "^0.31.2",
     "bull": "^4.16.5",
+    "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -20,6 +22,7 @@
     "ioredis": "^5.9.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
+    "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.17.2",
     "twilio": "^5.12.0",
