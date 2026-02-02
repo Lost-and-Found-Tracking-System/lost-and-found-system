@@ -223,10 +223,13 @@ adminRouter.put('/claims/:id/decision', async (req: AuthRequest, res, next) => {
     }
 
     claim.status = decision
+    claim.adminRemarks = remarks
+    claim.reviewedBy = new Types.ObjectId(req.user?.userId)
+    claim.reviewedAt = new Date()
     claim.resolvedAt = new Date()
     await claim.save()
 
-    // If approved, update item status
+    // If approved, update item status to resolved
     if (decision === 'approved') {
       await ItemModel.findByIdAndUpdate(claim.itemId, {
         status: 'resolved'

@@ -13,6 +13,7 @@ import {
     Clock,
     CheckCircle,
     AlertCircle,
+    MapPin,
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -61,6 +62,7 @@ const AdminDashboard = () => {
     const navLinks = [
         { to: '/admin/claims', label: 'Manage Claims', icon: FileText, desc: 'Review and approve claims' },
         { to: '/admin/roles', label: 'User Management', icon: Users, desc: 'Manage user roles and access' },
+        { to: '/admin/zones', label: 'Zone Management', icon: MapPin, desc: 'Manage campus zones and locations' },
         { to: '/admin/ai-config', label: 'AI Configuration', icon: Settings, desc: 'Configure AI matching settings' },
     ];
 
@@ -102,7 +104,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {navLinks.map((link, index) => {
                         const Icon = link.icon;
                         return (
@@ -129,27 +131,23 @@ const AdminDashboard = () => {
 
                 {/* Recent Activity */}
                 <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
-                    <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                        <Activity className="text-primary-400" size={20} />
-                        Recent Activity
-                    </h2>
-
+                    <div className="flex items-center gap-3 mb-4">
+                        <Activity className="w-5 h-5 text-primary-400" />
+                        <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
+                    </div>
                     {recentActivity.length === 0 ? (
                         <p className="text-slate-500 text-center py-8">No recent activity</p>
                     ) : (
                         <div className="space-y-3">
-                            {recentActivity.map((activity, index) => (
-                                <div key={index} className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl">
+                            {recentActivity.slice(0, 10).map((activity, index) => (
+                                <div key={index} className="flex items-center gap-4 p-3 bg-slate-800/50 rounded-xl">
                                     <div className="p-2 bg-slate-700 rounded-lg">
-                                        <AlertCircle size={18} className="text-slate-400" />
+                                        <TrendingUp className="w-4 h-4 text-slate-400" />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-white">
-                                            <span className="font-medium">{activity.action}</span>
-                                            {' on '}
-                                            <span className="text-primary-400">{activity.targetEntity}</span>
-                                        </p>
-                                        <p className="text-slate-500 text-sm">
+                                        <p className="text-white text-sm">{activity.action}</p>
+                                        <p className="text-slate-500 text-xs">
+                                            {activity.actorId?.profile?.fullName || 'System'} •{' '}
                                             {new Date(activity.timestamp).toLocaleString()}
                                         </p>
                                     </div>

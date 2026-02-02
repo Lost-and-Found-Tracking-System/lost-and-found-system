@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
 
 const Login = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
     const [formData, setFormData] = useState({ email: '', password: '' });
-    const [selectedRole, setSelectedRole] = useState('student');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -23,7 +22,7 @@ const Login = () => {
                 password: formData.password,
             });
 
-            // Redirect based on role
+            // Redirect based on role (role comes from backend)
             if (user.role === 'admin' || user.role === 'delegated_admin') {
                 navigate('/admin');
             } else {
@@ -42,6 +41,11 @@ const Login = () => {
             <div className="w-full max-w-md">
                 {/* Header */}
                 <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        <div className="p-2.5 bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-xl shadow-lg shadow-primary-500/20">
+                            <Sparkles size={24} className="text-white" />
+                        </div>
+                    </div>
                     <h1 className="text-4xl font-black text-white tracking-tight">
                         LOST<span className="text-primary-500">&</span>FOUND
                     </h1>
@@ -58,25 +62,6 @@ const Login = () => {
                             {error}
                         </div>
                     )}
-
-                    {/* Role Selection */}
-                    <div className="flex gap-2 mb-6">
-                        {['student', 'admin'].map((role) => (
-                            <button
-                                key={role}
-                                type="button"
-                                onClick={() => setSelectedRole(role)}
-                                className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                                    selectedRole === role
-                                        ? 'bg-primary-500 text-white'
-                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                }`}
-                            >
-                                {role === 'admin' ? <Shield size={18} /> : <User size={18} />}
-                                {role.charAt(0).toUpperCase() + role.slice(1)}
-                            </button>
-                        ))}
-                    </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Email */}
@@ -135,12 +120,25 @@ const Login = () => {
 
                     {/* Links */}
                     <div className="mt-6 text-center space-y-2">
-                        <Link to="/register-visitor" className="text-primary-400 hover:text-primary-300 text-sm block">
-                            Visitor? Register for temporary access
+                        <Link to="/register" className="text-primary-400 hover:text-primary-300 text-sm block">
+                            Don't have an account? Register
+                        </Link>
+                        <Link to="/register-visitor" className="text-slate-500 hover:text-slate-400 text-sm block">
+                            Visitor? Get temporary access
                         </Link>
                         <Link to="/" className="text-slate-500 hover:text-slate-400 text-sm block">
                             ← Back to Home
                         </Link>
+                    </div>
+                </div>
+
+                {/* Test Credentials Info (remove in production) */}
+                <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                    <p className="text-slate-400 text-xs text-center mb-2">Test Credentials (Development Only)</p>
+                    <div className="text-slate-500 text-xs space-y-1">
+                        <p><span className="text-slate-400">Student:</span> student@example.com / Student@123</p>
+                        <p><span className="text-slate-400">Faculty:</span> faculty@example.com / Faculty@123</p>
+                        <p><span className="text-slate-400">Admin:</span> admin@example.com / Admin@123</p>
                     </div>
                 </div>
             </div>
