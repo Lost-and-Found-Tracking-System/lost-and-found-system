@@ -16,6 +16,7 @@ import {
   submitOrganizationItem
 } from '../../services/itemService.js'
 import { createApiError } from '../../middleware/errorHandler.js'
+import { ItemModel } from '../../models/index.js'
 
 export const itemsRouter = Router()
 
@@ -192,6 +193,20 @@ itemsRouter.get('/type/:submissionType', async (req, res, next) => {
   }
 })
 
+// Get current user's items
+itemsRouter.get('/user/my-items', authMiddleware, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const userId = req.user!.userId
+    const items = await ItemModel.find({ submittedBy: userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('location.zoneId', 'zoneName')
+    res.json(items)
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Get item by ID (must be after other specific routes)
 itemsRouter.get('/:id', async (req, res, next) => {
   try {
@@ -205,4 +220,3 @@ itemsRouter.get('/:id', async (req, res, next) => {
     next(error)
   }
 })
-

@@ -167,6 +167,8 @@ export async function validateZone(zoneId: string, coordinates: [number, number]
 
 export async function getItemById(itemId: string) {
   return ItemModel.findById(itemId)
+    .populate('submittedBy', 'profile.fullName profile.affiliation profile.email role')
+    .populate('location.zoneId', 'zoneName zoneType')
 }
 
 export async function getItemsByType(submissionType: 'lost' | 'found', limit = 20, skip = 0) {
@@ -249,4 +251,3 @@ export async function searchItems(
 
   return { items, total }
 }
-
