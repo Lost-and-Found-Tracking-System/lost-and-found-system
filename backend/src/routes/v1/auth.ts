@@ -94,11 +94,11 @@ authRouter.post('/login', validateRequest(loginSchema), async (req, res, next) =
       // Send security alert if threshold reached
       if (user.credentials.failedLoginAttempts >= FAILED_LOGIN_THRESHOLD) {
         try {
-          await sendSecurityAlert(user._id.toString(), {
-            eventType: 'multiple_failed_logins',
-            deviceType: req.headers['user-agent'] || 'Unknown',
-            location: 'Unknown',
-          })
+          await sendSecurityAlert(
+            user._id.toString(),
+            'multiple_failed_logins',
+            `Multiple failed login attempts detected from ${req.headers['user-agent'] || 'Unknown device'}`
+          )
         } catch (alertError) {
           console.error('Failed to send security alert:', alertError)
         }
