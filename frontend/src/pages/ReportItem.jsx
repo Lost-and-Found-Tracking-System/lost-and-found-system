@@ -14,6 +14,7 @@ import {
     Loader2,
     Save,
     AlertCircle,
+    ArrowLeft,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -128,7 +129,7 @@ const ReportItem = () => {
             });
 
             setTrackingId(res.data.trackingId);
-            
+
             // Delete draft after successful submission
             try {
                 await api.delete('/v1/items/drafts/me');
@@ -148,7 +149,7 @@ const ReportItem = () => {
     const renderStep1 = () => (
         <div className="space-y-6">
             <h3 className="text-xl font-semibold text-white">What happened?</h3>
-            
+
             {/* Lost or Found */}
             <div className="flex gap-4">
                 {['lost', 'found'].map((type) => (
@@ -156,11 +157,10 @@ const ReportItem = () => {
                         key={type}
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, submissionType: type }))}
-                        className={`flex-1 py-4 px-6 rounded-xl font-semibold transition-all ${
-                            formData.submissionType === type
-                                ? 'bg-primary-500 text-white'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                        }`}
+                        className={`flex-1 py-4 px-6 rounded-xl font-semibold transition-all ${formData.submissionType === type
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
                     >
                         I {type} something
                     </button>
@@ -179,11 +179,10 @@ const ReportItem = () => {
                                 ...prev,
                                 itemAttributes: { ...prev.itemAttributes, category: cat }
                             }))}
-                            className={`py-2 px-3 rounded-lg text-sm transition-all ${
-                                formData.itemAttributes.category === cat
-                                    ? 'bg-primary-500 text-white'
-                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                            }`}
+                            className={`py-2 px-3 rounded-lg text-sm transition-all ${formData.itemAttributes.category === cat
+                                ? 'bg-primary-500 text-white'
+                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                }`}
                         >
                             {cat}
                         </button>
@@ -369,6 +368,13 @@ const ReportItem = () => {
             <div className="max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+                    >
+                        <ArrowLeft size={20} />
+                        Back to Dashboard
+                    </button>
                     <h1 className="text-3xl font-bold text-white">Report an Item</h1>
                     <p className="text-slate-400 mt-1">Help us help you find your belongings</p>
                 </div>
@@ -378,9 +384,8 @@ const ReportItem = () => {
                     <div className="flex items-center gap-4 mb-8">
                         {[1, 2, 3].map((s) => (
                             <React.Fragment key={s}>
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                                    step >= s ? 'bg-primary-500 text-white' : 'bg-slate-800 text-slate-500'
-                                }`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${step >= s ? 'bg-primary-500 text-white' : 'bg-slate-800 text-slate-500'
+                                    }`}>
                                     {s}
                                 </div>
                                 {s < 3 && (
