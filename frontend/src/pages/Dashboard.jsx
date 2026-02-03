@@ -17,6 +17,7 @@ import {
     CheckCircle,
 } from 'lucide-react';
 import api from '../services/api';
+import LogoutConfirmModal from '../components/LogoutConfirmModal';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -30,6 +31,7 @@ const Dashboard = () => {
     const [myItems, setMyItems] = useState([]);
     const [myClaims, setMyClaims] = useState([]);
     const [notifications, setNotifications] = useState([]);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     useEffect(() => {
         fetchDashboardData();
@@ -168,7 +170,7 @@ const Dashboard = () => {
                 </nav>
 
                 <button
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutModal(true)}
                     className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors mt-auto"
                 >
                     <LogOut size={20} />
@@ -332,6 +334,13 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Logout Confirmation Modal */}
+            <LogoutConfirmModal
+                isOpen={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                onConfirm={handleLogout}
+            />
         </div>
     );
 };

@@ -21,6 +21,7 @@ import {
     Trees,
 } from 'lucide-react';
 import api from '../../services/api';
+import LogoutConfirmModal from '../../components/LogoutConfirmModal';
 
 const ZONE_TYPES = [
     { value: 'building', label: 'Building', icon: Building },
@@ -34,6 +35,7 @@ const ZoneManagement = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     // Zones data
     const [zones, setZones] = useState([]);
@@ -121,7 +123,7 @@ const ZoneManagement = () => {
             // Create default geoBoundary (can be enhanced with actual map picker later)
             const defaultCoords = [76.925, 10.903]; // Amrita Coimbatore center
             const offset = 0.001;
-            
+
             const zoneData = {
                 zoneName: formData.zoneName.trim(),
                 description: formData.description.trim(),
@@ -221,11 +223,10 @@ const ZoneManagement = () => {
                         <Link
                             key={item.label}
                             to={item.path}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                                item.active
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${item.active
                                     ? 'bg-yellow-500/20 text-yellow-400'
                                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                            }`}
+                                }`}
                         >
                             <item.icon size={20} />
                             <span className="flex-1">{item.label}</span>
@@ -246,7 +247,7 @@ const ZoneManagement = () => {
                 {/* Logout */}
                 <div className="p-4 border-t border-slate-800">
                     <button
-                        onClick={handleLogout}
+                        onClick={() => setShowLogoutModal(true)}
                         className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                     >
                         <LogOut size={20} />
@@ -323,11 +324,10 @@ const ZoneManagement = () => {
                                                 key={type.value}
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, zoneType: type.value })}
-                                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-colors ${
-                                                    formData.zoneType === type.value
+                                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-colors ${formData.zoneType === type.value
                                                         ? 'bg-yellow-500 text-black'
                                                         : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                                }`}
+                                                    }`}
                                             >
                                                 <type.icon size={18} />
                                                 {type.label}
@@ -402,21 +402,20 @@ const ZoneManagement = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {zones.map((zone) => {
                                 const TypeIcon = zone.zoneType === 'outdoor' ? Trees : Building;
-                                
+
                                 return (
                                     <div
                                         key={zone._id}
                                         className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition-colors"
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className={`p-3 rounded-xl ${
-                                                zone.zoneType === 'outdoor' 
-                                                    ? 'bg-green-500/20' 
+                                            <div className={`p-3 rounded-xl ${zone.zoneType === 'outdoor'
+                                                    ? 'bg-green-500/20'
                                                     : 'bg-blue-500/20'
-                                            }`}>
+                                                }`}>
                                                 <TypeIcon size={24} className={
-                                                    zone.zoneType === 'outdoor' 
-                                                        ? 'text-green-400' 
+                                                    zone.zoneType === 'outdoor'
+                                                        ? 'text-green-400'
                                                         : 'text-blue-400'
                                                 } />
                                             </div>
@@ -462,13 +461,20 @@ const ZoneManagement = () => {
                     {zones.length > 0 && (
                         <div className="mt-6 p-4 bg-slate-800/50 rounded-xl">
                             <p className="text-slate-400 text-sm">
-                                <span className="text-white font-medium">{zones.length}</span> zones configured. 
+                                <span className="text-white font-medium">{zones.length}</span> zones configured.
                                 Users can select these locations when reporting lost or found items.
                             </p>
                         </div>
                     )}
                 </div>
             </main>
+
+            {/* Logout Confirmation Modal */}
+            <LogoutConfirmModal
+                isOpen={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                onConfirm={handleLogout}
+            />
         </div>
     );
 };

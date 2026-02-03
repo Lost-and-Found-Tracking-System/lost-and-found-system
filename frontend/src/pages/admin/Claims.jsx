@@ -26,6 +26,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import LogoutConfirmModal from '../../components/LogoutConfirmModal';
 
 const STATUS_FILTERS = [
     { value: 'all', label: 'All Claims' },
@@ -41,6 +42,7 @@ const ClaimsManagement = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     // Claims data
     const [claims, setClaims] = useState([]);
@@ -288,11 +290,10 @@ const ClaimsManagement = () => {
                         <Link
                             key={item.label}
                             to={item.path}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                                item.active
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${item.active
                                     ? 'bg-yellow-500/20 text-yellow-400'
                                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                            }`}
+                                }`}
                         >
                             <item.icon size={20} />
                             <span className="flex-1">{item.label}</span>
@@ -318,7 +319,7 @@ const ClaimsManagement = () => {
                 {/* Logout */}
                 <div className="p-4 border-t border-slate-800">
                     <button
-                        onClick={handleLogout}
+                        onClick={() => setShowLogoutModal(true)}
                         className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                     >
                         <LogOut size={20} />
@@ -378,11 +379,10 @@ const ClaimsManagement = () => {
                                 <button
                                     key={filter.value}
                                     onClick={() => setStatusFilter(filter.value)}
-                                    className={`px-4 py-3 rounded-xl font-medium transition-colors ${
-                                        statusFilter === filter.value
+                                    className={`px-4 py-3 rounded-xl font-medium transition-colors ${statusFilter === filter.value
                                             ? 'bg-yellow-500 text-black'
                                             : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
-                                    }`}
+                                        }`}
                                 >
                                     {filter.label}
                                 </button>
@@ -590,11 +590,10 @@ const ClaimsManagement = () => {
                                                                         decision: 'approved',
                                                                     }))
                                                                 }
-                                                                className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-                                                                    decisionForm.decision === 'approved'
+                                                                className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${decisionForm.decision === 'approved'
                                                                         ? 'bg-green-500 text-white'
                                                                         : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 <CheckCircle size={20} />
                                                                 Approve
@@ -606,11 +605,10 @@ const ClaimsManagement = () => {
                                                                         decision: 'rejected',
                                                                     }))
                                                                 }
-                                                                className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-                                                                    decisionForm.decision === 'rejected'
+                                                                className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${decisionForm.decision === 'rejected'
                                                                         ? 'bg-red-500 text-white'
                                                                         : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                                                                }`}
+                                                                    }`}
                                                             >
                                                                 <XCircle size={20} />
                                                                 Reject
@@ -683,6 +681,13 @@ const ClaimsManagement = () => {
                     )}
                 </div>
             </main>
+
+            {/* Logout Confirmation Modal */}
+            <LogoutConfirmModal
+                isOpen={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                onConfirm={handleLogout}
+            />
         </div>
     );
 };
