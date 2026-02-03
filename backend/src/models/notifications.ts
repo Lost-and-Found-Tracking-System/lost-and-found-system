@@ -64,7 +64,7 @@ const notificationPreferencesSchema = new Schema({
   priorities: { type: Schema.Types.Mixed, default: {} },
 })
 
-notificationPreferencesSchema.index({ userId: 1 }, { unique: true })
+// Note: userId index created automatically by unique: true on line 46
 
 export type NotificationPreferences = InferSchemaType<typeof notificationPreferencesSchema>
 export const NotificationPreferencesModel = model('notification_preferences', notificationPreferencesSchema)
