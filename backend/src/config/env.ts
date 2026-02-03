@@ -34,11 +34,9 @@ export const env = {
     fromEmail: optionalEnv('SENDGRID_FROM_EMAIL', 'noreply@lostfound.campus.edu'),
     fromName: optionalEnv('SENDGRID_FROM_NAME', 'Lost & Found System'),
   },
-  // Twilio SMS configuration
-  twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
-    authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
-    phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
+  // Fast2SMS configuration (India SMS - replaces Twilio)
+  fast2sms: {
+    apiKey: process.env.FAST2SMS_API_KEY ?? '',
   },
   // Cloudinary image storage configuration
   cloudinary: {
@@ -55,6 +53,6 @@ export function assertRequiredEnv(): void {
 }
 
 export function isProductionServicesEnabled(): boolean {
-  return !!(env.sendgrid.apiKey && env.twilio.accountSid)
+  return !!(env.sendgrid.apiKey && env.fast2sms.apiKey)
 }
 
