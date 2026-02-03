@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import CampusMap from '../components/CampusMap';
+import Sidebar from '../components/Sidebar';
 import {
     Package,
     MapPin,
@@ -364,93 +365,96 @@ const ReportItem = () => {
     );
 
     return (
-        <div className="min-h-screen bg-[#020617] p-8">
-            <div className="max-w-2xl mx-auto">
-                {/* Header */}
-                <div className="mb-8">
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
-                    >
-                        <ArrowLeft size={20} />
-                        Back to Dashboard
-                    </button>
-                    <h1 className="text-3xl font-bold text-white">Report an Item</h1>
-                    <p className="text-slate-400 mt-1">Help us help you find your belongings</p>
-                </div>
-
-                {/* Progress Steps */}
-                {step < 4 && (
-                    <div className="flex items-center gap-4 mb-8">
-                        {[1, 2, 3].map((s) => (
-                            <React.Fragment key={s}>
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${step >= s ? 'bg-primary-500 text-white' : 'bg-slate-800 text-slate-500'
-                                    }`}>
-                                    {s}
-                                </div>
-                                {s < 3 && (
-                                    <div className={`flex-1 h-1 rounded ${step > s ? 'bg-primary-500' : 'bg-slate-800'}`} />
-                                )}
-                            </React.Fragment>
-                        ))}
+        <>
+            <Sidebar />
+            <div className="min-h-screen bg-[#020617] p-8">
+                <div className="max-w-2xl mx-auto">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
+                        >
+                            <ArrowLeft size={20} />
+                            Back to Dashboard
+                        </button>
+                        <h1 className="text-3xl font-bold text-white">Report an Item</h1>
+                        <p className="text-slate-400 mt-1">Help us help you find your belongings</p>
                     </div>
-                )}
 
-                {/* Form Card */}
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8">
-                    {step === 1 && renderStep1()}
-                    {step === 2 && renderStep2()}
-                    {step === 3 && renderStep3()}
-                    {step === 4 && renderSuccess()}
-
-                    {/* Navigation */}
+                    {/* Progress Steps */}
                     {step < 4 && (
-                        <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-800">
-                            <div className="flex gap-2">
-                                {step > 1 && (
-                                    <button
-                                        onClick={() => setStep(step - 1)}
-                                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
-                                    >
-                                        <ChevronLeft size={20} />
-                                        Back
-                                    </button>
-                                )}
-                                <button
-                                    onClick={saveDraft}
-                                    disabled={savingDraft}
-                                    className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
-                                >
-                                    {savingDraft ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                    Save Draft
-                                </button>
-                            </div>
-
-                            {success && <span className="text-green-400 text-sm">{success}</span>}
-
-                            {step < 3 ? (
-                                <button
-                                    onClick={() => setStep(step + 1)}
-                                    className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center gap-2"
-                                >
-                                    Next
-                                    <ChevronRight size={20} />
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={loading}
-                                    className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:bg-primary-500/50 transition-colors flex items-center gap-2"
-                                >
-                                    {loading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-                                    {loading ? 'Submitting...' : 'Submit Report'}
-                                </button>
-                            )}
+                        <div className="flex items-center gap-4 mb-8">
+                            {[1, 2, 3].map((s) => (
+                                <React.Fragment key={s}>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${step >= s ? 'bg-primary-500 text-white' : 'bg-slate-800 text-slate-500'
+                                        }`}>
+                                        {s}
+                                    </div>
+                                    {s < 3 && (
+                                        <div className={`flex-1 h-1 rounded ${step > s ? 'bg-primary-500' : 'bg-slate-800'}`} />
+                                    )}
+                                </React.Fragment>
+                            ))}
                         </div>
                     )}
+
+                    {/* Form Card */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8">
+                        {step === 1 && renderStep1()}
+                        {step === 2 && renderStep2()}
+                        {step === 3 && renderStep3()}
+                        {step === 4 && renderSuccess()}
+
+                        {/* Navigation */}
+                        {step < 4 && (
+                            <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-800">
+                                <div className="flex gap-2">
+                                    {step > 1 && (
+                                        <button
+                                            onClick={() => setStep(step - 1)}
+                                            className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <ChevronLeft size={20} />
+                                            Back
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={saveDraft}
+                                        disabled={savingDraft}
+                                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                                    >
+                                        {savingDraft ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                        Save Draft
+                                    </button>
+                                </div>
+
+                                {success && <span className="text-green-400 text-sm">{success}</span>}
+
+                                {step < 3 ? (
+                                    <button
+                                        onClick={() => setStep(step + 1)}
+                                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center gap-2"
+                                    >
+                                        Next
+                                        <ChevronRight size={20} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:bg-primary-500/50 transition-colors flex items-center gap-2"
+                                    >
+                                        {loading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+                                        {loading ? 'Submitting...' : 'Submit Report'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
