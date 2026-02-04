@@ -217,21 +217,25 @@ adminRouter.put('/claims/:id/decision', async (req: AuthRequest, res, next) => {
       throw createApiError(400, 'Decision must be approved or rejected')
     }
 
-    const claim = await ClaimModel.findById(req.params.id)
-    if (!claim) {
+    // Update claim with decision
+    const updatedClaim = await ClaimModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: decision,
+        adminNotes: remarks,
+        resolvedBy: new Types.ObjectId(req.user?.userId),
+        resolvedAt: new Date(),
+      },
+      { new: true }
+    )
+
+    if (!updatedClaim) {
       throw createApiError(404, 'Claim not found')
     }
 
-    claim.status = decision
-    claim.adminRemarks = remarks
-    claim.reviewedBy = new Types.ObjectId(req.user?.userId)
-    claim.reviewedAt = new Date()
-    claim.resolvedAt = new Date()
-    await claim.save()
-
     // If approved, update item status to resolved
     if (decision === 'approved') {
-      await ItemModel.findByIdAndUpdate(claim.itemId, {
+      await ItemModel.findByIdAndUpdate(updatedClaim.itemId, {
         status: 'resolved'
       })
     }
@@ -241,12 +245,12 @@ adminRouter.put('/claims/:id/decision', async (req: AuthRequest, res, next) => {
       actorId: new Types.ObjectId(req.user?.userId),
       action: `claim_${decision}`,
       targetEntity: 'claims',
-      targetId: claim._id,
+      targetId: updatedClaim._id,
       metadata: { remarks },
       timestamp: new Date()
     })
 
-    res.json({ message: `Claim ${decision}`, claim })
+    res.json({ message: `Claim ${decision}`, claim: updatedClaim })
   } catch (error) {
     next(error)
   }
