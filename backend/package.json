@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite-node src/server.ts",
-    "build": "tsc --noEmit && vite build",
-    "lint": "eslint .",
-    "preview": "node dist/server.mjs"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
