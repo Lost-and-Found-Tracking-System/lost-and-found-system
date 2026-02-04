@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import Sidebar from '../components/Sidebar';
 import {
     Bell,
     Check,
@@ -38,7 +39,7 @@ const Notifications = () => {
     const markAsRead = async (id) => {
         try {
             await api.put(`/v1/notifications/${id}/read`);
-            setNotifications(notifications.map(n => 
+            setNotifications(notifications.map(n =>
                 n._id === id ? { ...n, isRead: true, readAt: new Date() } : n
             ));
             setTotalUnread(prev => Math.max(0, prev - 1));
@@ -92,105 +93,110 @@ const Notifications = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-            </div>
+            <>
+                <Sidebar />
+                <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                </div>
+            </>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#020617] p-8">
-            <div className="max-w-3xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">Notifications</h1>
-                        <p className="text-slate-400 mt-1">
-                            {totalUnread > 0 ? `${totalUnread} unread notifications` : 'All caught up!'}
-                        </p>
+        <>
+            <Sidebar />
+            <div className="min-h-screen bg-[#020617] p-8">
+                <div className="max-w-3xl mx-auto">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white">Notifications</h1>
+                            <p className="text-slate-400 mt-1">
+                                {totalUnread > 0 ? `${totalUnread} unread notifications` : 'All caught up!'}
+                            </p>
+                        </div>
+                        {totalUnread > 0 && (
+                            <button
+                                onClick={markAllAsRead}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                            >
+                                <CheckCheck size={18} />
+                                Mark all as read
+                            </button>
+                        )}
                     </div>
-                    {totalUnread > 0 && (
-                        <button
-                            onClick={markAllAsRead}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
-                        >
-                            <CheckCheck size={18} />
-                            Mark all as read
-                        </button>
-                    )}
-                </div>
 
-                {/* Notifications List */}
-                {notifications.length === 0 ? (
-                    <div className="text-center py-20">
-                        <Bell className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-white mb-2">No notifications</h3>
-                        <p className="text-slate-400">You're all caught up! Check back later.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {notifications.map((notif) => {
-                            const Icon = getIcon(notif.type);
-                            return (
-                                <div
-                                    key={notif._id}
-                                    className={`bg-slate-900/50 border rounded-2xl p-5 transition-all ${
-                                        notif.isRead 
-                                            ? 'border-slate-800' 
-                                            : 'border-primary-500/50 bg-primary-500/5'
-                                    }`}
-                                >
-                                    <div className="flex items-start gap-4">
-                                        <div className={`p-3 rounded-xl ${getIconColor(notif.type)}`}>
-                                            <Icon size={20} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs text-slate-500 uppercase tracking-wide">
-                                                    {notif.type?.replace('_', ' ')}
-                                                </span>
-                                                {!notif.isRead && (
-                                                    <span className="w-2 h-2 bg-primary-500 rounded-full" />
-                                                )}
+                    {/* Notifications List */}
+                    {notifications.length === 0 ? (
+                        <div className="text-center py-20">
+                            <Bell className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-white mb-2">No notifications</h3>
+                            <p className="text-slate-400">You're all caught up! Check back later.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {notifications.map((notif) => {
+                                const Icon = getIcon(notif.type);
+                                return (
+                                    <div
+                                        key={notif._id}
+                                        className={`bg-slate-900/50 border rounded-2xl p-5 transition-all ${notif.isRead
+                                                ? 'border-slate-800'
+                                                : 'border-primary-500/50 bg-primary-500/5'
+                                            }`}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div className={`p-3 rounded-xl ${getIconColor(notif.type)}`}>
+                                                <Icon size={20} />
                                             </div>
-                                            <p className="text-white">{notif.content}</p>
-                                            <p className="text-slate-500 text-sm mt-1">
-                                                {new Date(notif.sentAt).toLocaleString()}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {!notif.isRead && (
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs text-slate-500 uppercase tracking-wide">
+                                                        {notif.type?.replace('_', ' ')}
+                                                    </span>
+                                                    {!notif.isRead && (
+                                                        <span className="w-2 h-2 bg-primary-500 rounded-full" />
+                                                    )}
+                                                </div>
+                                                <p className="text-white">{notif.content}</p>
+                                                <p className="text-slate-500 text-sm mt-1">
+                                                    {new Date(notif.sentAt).toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {!notif.isRead && (
+                                                    <button
+                                                        onClick={() => markAsRead(notif._id)}
+                                                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                                                        title="Mark as read"
+                                                    >
+                                                        <Check size={18} />
+                                                    </button>
+                                                )}
                                                 <button
-                                                    onClick={() => markAsRead(notif._id)}
-                                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                                                    title="Mark as read"
+                                                    onClick={() => deleteNotification(notif._id)}
+                                                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Delete"
                                                 >
-                                                    <Check size={18} />
+                                                    <Trash2 size={18} />
                                                 </button>
-                                            )}
-                                            <button
-                                                onClick={() => deleteNotification(notif._id)}
-                                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
 
-                {/* Back Link */}
-                <div className="mt-8 text-center">
-                    <Link to="/dashboard" className="text-slate-400 hover:text-white transition-colors">
-                        ← Back to Dashboard
-                    </Link>
+                    {/* Back Link */}
+                    <div className="mt-8 text-center">
+                        <Link to="/dashboard" className="text-slate-400 hover:text-white transition-colors">
+                            ← Back to Dashboard
+                        </Link>
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
