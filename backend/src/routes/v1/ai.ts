@@ -28,7 +28,7 @@ import {
     findSimilarItems,
     getTopMatches,
     processMatchDecision,
-} from '../../services/aiService.js'
+} from '../../services/embeddingService.js'
 import {
     assessClaimRisk,
     evaluateCompetingClaims,

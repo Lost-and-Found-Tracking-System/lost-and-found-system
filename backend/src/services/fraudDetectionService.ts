@@ -12,9 +12,75 @@
 
 import { Types } from 'mongoose'
 import { ClaimModel, ItemModel } from '../models/index.js'
-import {
-    calculateTFIDFSimilarity
-} from './textSimilarityService.js'
+
+// ============ INLINE TF-IDF IMPLEMENTATION ============
+
+const STOP_WORDS = new Set([
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
+    'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought',
+    'used', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves',
+    'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his',
+    'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself',
+    'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who',
+    'whom', 'this', 'that', 'these', 'those', 'lost', 'found', 'item', 'please', 'help'
+])
+
+function preprocessText(text: string): string[] {
+    return text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 1 && !STOP_WORDS.has(word))
+}
+
+function calculateTF(terms: string[]): Map<string, number> {
+    const tf = new Map<string, number>()
+    const totalTerms = terms.length
+    if (totalTerms === 0) return tf
+
+    for (const term of terms) {
+        tf.set(term, (tf.get(term) || 0) + 1)
+    }
+
+    for (const [term, count] of tf) {
+        tf.set(term, count / totalTerms)
+    }
+
+    return tf
+}
+
+function calculateTFIDFSimilarity(text1: string, text2: string): number {
+    const terms1 = preprocessText(text1)
+    const terms2 = preprocessText(text2)
+
+    if (terms1.length === 0 || terms2.length === 0) {
+        return 0
+    }
+
+    const allTerms = new Set([...terms1, ...terms2])
+    const tf1 = calculateTF(terms1)
+    const tf2 = calculateTF(terms2)
+
+    let dotProduct = 0
+    let norm1 = 0
+    let norm2 = 0
+
+    for (const term of allTerms) {
+        const v1 = tf1.get(term) || 0
+        const v2 = tf2.get(term) || 0
+
+        dotProduct += v1 * v2
+        norm1 += v1 * v1
+        norm2 += v2 * v2
+    }
+
+    const magnitude = Math.sqrt(norm1) * Math.sqrt(norm2)
+    const similarity = magnitude > 0 ? dotProduct / magnitude : 0
+
+    return Math.round(similarity * 100)
+}
 
 // ============ TYPE DEFINITIONS ============
 
