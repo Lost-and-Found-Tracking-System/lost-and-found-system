@@ -15,20 +15,22 @@ import type { AuthRequest } from '../../middleware/auth.js'
 import { authMiddleware } from '../../middleware/auth.js'
 import { createApiError } from '../../middleware/errorHandler.js'
 
-// Service imports
-import {
-    analyzeThresholdEffectiveness,
-    calculateAccuracyOverTime,
-    getAIPerformanceMetrics,
-    getFraudAnalytics,
-    getMatchStatsByCategory,
-} from '../../services/aiAnalyticsService.js'
 import {
     findQuickMatches,
     findSimilarItems,
     getTopMatches,
     processMatchDecision,
 } from '../../services/embeddingService.js'
+import {
+    analyzeThresholdEffectiveness,
+    calculateAccuracyOverTime,
+    getAIPerformanceMetrics,
+    getFraudAnalytics,
+    getMatchStatsByCategory,
+    matchAllMissingToFoundItems,
+    processAllFoundItemClaims,
+    runCompletePipeline,
+} from '../../services/findImagePairs.js'
 import {
     assessClaimRisk,
     evaluateCompetingClaims,
@@ -321,6 +323,59 @@ aiRouter.get('/analytics/thresholds', requireAdmin, async (_req: AuthRequest, re
         const analysis = await analyzeThresholdEffectiveness()
 
         res.json(analysis)
+    } catch (error) {
+        next(error)
+    }
+})
+
+// ============ IMAGE PAIRING ENDPOINTS ============
+
+/**
+ * POST /api/v1/ai/match-all-pairs
+ * Match all missing items to their best found items
+ */
+aiRouter.post('/match-all-pairs', requireAdmin, async (_req: AuthRequest, res, next) => {
+    try {
+        const result = await matchAllMissingToFoundItems()
+
+        res.json({
+            message: 'Matching complete',
+            ...result,
+        })
+    } catch (error) {
+        next(error)
+    }
+})
+
+/**
+ * POST /api/v1/ai/score-all-claims
+ * Process and score all claims for found items
+ */
+aiRouter.post('/score-all-claims', requireAdmin, async (_req: AuthRequest, res, next) => {
+    try {
+        const result = await processAllFoundItemClaims()
+
+        res.json({
+            message: 'Claims scored',
+            ...result,
+        })
+    } catch (error) {
+        next(error)
+    }
+})
+
+/**
+ * POST /api/v1/ai/run-pipeline
+ * Run complete matching and scoring pipeline
+ */
+aiRouter.post('/run-pipeline', requireAdmin, async (_req: AuthRequest, res, next) => {
+    try {
+        const result = await runCompletePipeline()
+
+        res.json({
+            message: 'Pipeline complete',
+            ...result,
+        })
     } catch (error) {
         next(error)
     }

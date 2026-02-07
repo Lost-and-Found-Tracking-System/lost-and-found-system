@@ -1,5 +1,5 @@
-import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
+import { model, Schema, Types } from 'mongoose'
 
 // ITEMS
 const itemAttributesSchema = new Schema({
@@ -32,6 +32,12 @@ const itemTimeMetadataSchema = new Schema({
 const aiMetadataSchema = new Schema({
   similarityChecked: { type: Boolean, default: false },
   suggestedMatches: [{ type: Types.ObjectId, ref: 'items' }],
+  detectedObjects: [{ type: String }],
+  primaryClass: { type: String },
+  embedding: [{ type: Number }],
+  textEmbedding: [{ type: Number }],
+  bestMatchFoundItemId: { type: Types.ObjectId, ref: 'items' },
+  matchScore: { type: Number },
 }, { _id: false })
 
 const itemSchema = new Schema({
