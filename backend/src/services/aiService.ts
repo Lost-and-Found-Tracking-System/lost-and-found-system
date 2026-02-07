@@ -10,6 +10,11 @@
 
 import { Types } from 'mongoose'
 import { AiConfigurationModel, AiMatchModel, ItemModel } from '../models/index.js'
+import {
+    calculateHybridTextSimilarity,
+    calculateTFIDFSimilarity,
+    type ItemDocument as TextItemDocument,
+} from './textSimilarityService.js'
 
 // ============ TYPE DEFINITIONS ============
 
@@ -374,35 +379,6 @@ async function generateOpenClipEmbedding(imageUrl: string): Promise<number[]> {
     }
 }
 
-/**
- * Generate text embedding using OpenCLIP
- */
-async function generateTextEmbedding(text: string): Promise<number[]> {
-    try {
-        const response = await fetch(`${HUGGINGFACE_API_URL}/sentence-transformers/all-MiniLM-L6-v2`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                inputs: text,
-            }),
-        })
-
-        if (!response.ok) {
-            console.error(`Text embedding error: ${response.statusText}`)
-            return []
-        }
-
-        const embedding = (await response.json()) as number[]
-        return embedding
-    } catch (error) {
-        console.error('Error generating text embedding:', error)
-        return []
-    }
-}
-
 // ============ FAISS-BASED SIMILARITY ============
 
 /**
@@ -629,60 +605,28 @@ function calculateTimeScore(
 // ============ TEXT SIMILARITY ============
 
 /**
- * Calculate text similarity using embeddings
+ * Calculate text similarity using hybrid TF-IDF + embeddings approach
+ * Uses textSimilarityService for the actual calculation
  */
 async function calculateTextScore(
     item1: ItemDocument,
     item2: ItemDocument
 ): Promise<number> {
-    // Build text representations
-    const text1 = buildItemTextRepresentation(item1)
-    const text2 = buildItemTextRepresentation(item2)
-
-    // Get embeddings
-    const [embedding1, embedding2] = await Promise.all([
-        generateTextEmbedding(text1),
-        generateTextEmbedding(text2),
-    ])
-
-    if (embedding1.length === 0 || embedding2.length === 0) {
-        // Fallback to simple keyword matching
-        return simpleTextSimilarity(text1, text2)
+    // Convert to compatible type for textSimilarityService
+    const textItem1: TextItemDocument = {
+        _id: item1._id,
+        submissionType: item1.submissionType,
+        itemAttributes: item1.itemAttributes,
+    }
+    const textItem2: TextItemDocument = {
+        _id: item2._id,
+        submissionType: item2.submissionType,
+        itemAttributes: item2.itemAttributes,
     }
 
-    // Cosine similarity
-    const similarity = cosineSimilarity(embedding1, embedding2)
-    return Math.round(similarity * 100)
-}
-
-/**
- * Build text representation from item attributes
- */
-function buildItemTextRepresentation(item: ItemDocument): string {
-    const parts = [
-        item.itemAttributes.category,
-        item.itemAttributes.description,
-        item.itemAttributes.color || '',
-        item.itemAttributes.material || '',
-        item.itemAttributes.size || '',
-    ]
-    return parts.filter(Boolean).join(' ')
-}
-
-/**
- * Simple keyword-based text similarity (fallback)
- */
-function simpleTextSimilarity(text1: string, text2: string): number {
-    const words1 = new Set(text1.toLowerCase().split(/\s+/).filter(Boolean))
-    const words2 = new Set(text2.toLowerCase().split(/\s+/).filter(Boolean))
-
-    let intersection = 0
-    for (const word of words1) {
-        if (words2.has(word)) intersection++
-    }
-
-    const union = new Set([...words1, ...words2]).size
-    return union > 0 ? Math.round((intersection / union) * 100) : 0
+    // Use hybrid TF-IDF + embedding similarity
+    const result = await calculateHybridTextSimilarity(textItem1, textItem2)
+    return result.finalScore
 }
 
 /**
@@ -1164,7 +1108,7 @@ export async function findQuickMatches(params: {
     // Simple text similarity scoring
     const results = candidates.map((candidate: { _id: unknown; trackingId: unknown; itemAttributes: { description: unknown }; createdAt: unknown }) => {
         const candidateDesc = String(candidate.itemAttributes.description || '')
-        const score = simpleTextSimilarity(description, candidateDesc)
+        const score = calculateTFIDFSimilarity(description, candidateDesc)
 
         return {
             itemId: String(candidate._id),
