@@ -1,14 +1,26 @@
-import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
+import { model, Schema, Types } from 'mongoose'
 
 // CLAIMS
+const fraudFlagSchema = new Schema({
+  type: { type: String, required: true },
+  severity: { type: String, required: true, enum: ['warning', 'critical'] },
+  description: { type: String, required: true },
+}, { _id: false })
+
+const fraudRiskSchema = new Schema({
+  suspicionScore: { type: Number, default: 0 },
+  flags: [fraudFlagSchema],
+  assessedAt: { type: Date },
+}, { _id: false })
+
 const claimSchema = new Schema({
   itemId: { type: Types.ObjectId, required: true, ref: 'items' },
   claimantId: { type: Types.ObjectId, required: true, ref: 'users' },
   claimedBy: { type: Types.ObjectId, ref: 'users' }, // Alias for claimantId, used in some contexts
   ownershipProofs: [{ type: String }],
   proofScore: { type: Number, required: true },
-  status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict'] },
+  status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict', 'suspicious'] },
   aiConfidenceScore: { type: Number },
   confidenceTier: { type: String, required: true, enum: ['full', 'partial', 'low'] },
   submittedAt: { type: Date, required: true },
@@ -16,6 +28,7 @@ const claimSchema = new Schema({
   resolvedBy: { type: Types.ObjectId, ref: 'users' },
   adminNotes: { type: String },
   isAdminOverride: { type: Boolean, default: false },
+  fraudRisk: fraudRiskSchema,
 })
 
 claimSchema.index({ itemId: 1 })
