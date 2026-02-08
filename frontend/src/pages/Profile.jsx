@@ -1,532 +1,350 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+/**
+ * PREMIUM PROFILE PAGE
+ * With advanced effects from CodePen inspirations
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import Sidebar from '../components/Sidebar';
+import { gsap } from 'gsap';
 import {
     User,
     Mail,
     Phone,
-    Building,
-    Bell,
     Shield,
-    Clock,
+    Edit3,
     Save,
+    X,
+    Camera,
+    CheckCircle,
     Loader2,
     AlertCircle,
-    CheckCircle,
-    Monitor,
-    Smartphone,
-    MapPin,
-    X,
+    Calendar,
+    Package,
+    FileText,
+    Activity,
+    Award
 } from 'lucide-react';
-import api from '../services/api';
+import {
+    MorphingBlob,
+    GlitchText,
+    NeonText,
+    TiltCard,
+    GradientBorderCard,
+    ElasticButton,
+    PulseRings,
+    ParticleExplosion,
+    HolographicCard
+} from '../effects';
 
 const Profile = () => {
-    const { user, updateProfile } = useAuth();
+    const { user, updateUser } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
+    const [editing, setEditing] = useState(false);
     const [success, setSuccess] = useState('');
-
-    // Profile form data
-    const [profileData, setProfileData] = useState({
-        fullName: '',
-        phone: '',
-        affiliation: '',
+    const [error, setError] = useState('');
+    const [stats, setStats] = useState({
+        itemsReported: 0,
+        claimsSubmitted: 0,
+        itemsResolved: 0
     });
 
-    // Notification preferences
-    const [notifPrefs, setNotifPrefs] = useState({
-        channels: {
-            email: true,
-            push: true,
-            sms: false,
-        },
+    const [formData, setFormData] = useState({
+        fullName: user?.fullName || '',
+        phone: user?.phone || ''
     });
-    const [savingNotifPrefs, setSavingNotifPrefs] = useState(false);
 
-    // Login activity
-    const [loginActivity, setLoginActivity] = useState([]);
-    const [loadingActivity, setLoadingActivity] = useState(true);
+    const containerRef = useRef(null);
 
-    // Initialize profile data from user context
+    // Fetch user stats
     useEffect(() => {
-        if (user) {
-            setProfileData({
-                fullName: user.fullName || '',
-                phone: user.phone || '',
-                affiliation: user.affiliation || '',
+        const fetchStats = async () => {
+            try {
+                const res = await api.get('/v1/dashboard/stats');
+                setStats(res.data || {});
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    // GSAP animations
+    useEffect(() => {
+        const ctx = gsap.context(() => {
+            gsap.fromTo('.profile-header',
+                { y: -40, opacity: 0, filter: 'blur(10px)' },
+                { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }
+            );
+
+            gsap.fromTo('.profile-avatar',
+                { scale: 0, rotate: -180 },
+                { scale: 1, rotate: 0, duration: 1, delay: 0.2, ease: 'elastic.out(1, 0.5)' }
+            );
+
+            gsap.fromTo('.profile-card',
+                { y: 60, opacity: 0, rotateX: 15 },
+                { y: 0, opacity: 1, rotateX: 0, duration: 0.8, stagger: 0.1, delay: 0.3, ease: 'power4.out' }
+            );
+
+            gsap.fromTo('.stat-item',
+                { y: 30, opacity: 0, scale: 0.9 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.1, delay: 0.5, ease: 'back.out(2)' }
+            );
+
+            // Animate stat numbers
+            document.querySelectorAll('.stat-value').forEach(el => {
+                const target = parseInt(el.dataset.value) || 0;
+                gsap.fromTo(el,
+                    { innerText: 0 },
+                    { innerText: target, duration: 2, snap: { innerText: 1 }, delay: 0.8, ease: 'power2.out' }
+                );
             });
-        }
-    }, [user]);
 
-    // Fetch notification preferences
-    useEffect(() => {
-        const fetchNotifPrefs = async () => {
-            try {
-                const response = await api.get('/v1/users/notification-preferences');
-                if (response.data) {
-                    setNotifPrefs({
-                        channels: {
-                            email: response.data.channels?.email ?? response.data.emailEnabled ?? true,
-                            push: response.data.channels?.push ?? response.data.pushEnabled ?? true,
-                            sms: response.data.channels?.sms ?? response.data.smsEnabled ?? false,
-                        },
-                    });
-                }
-            } catch (err) {
-                console.error('Failed to fetch notification preferences:', err);
-            }
-        };
+        }, containerRef);
 
-        fetchNotifPrefs();
+        return () => ctx.revert();
     }, []);
 
-    // Fetch login activity
-    useEffect(() => {
-        const fetchLoginActivity = async () => {
-            setLoadingActivity(true);
-            try {
-                const response = await api.get('/v1/users/login-activity');
-                const activities = Array.isArray(response.data) ? response.data : [];
-                setLoginActivity(activities.slice(0, 10)); // Last 10 activities
-            } catch (err) {
-                console.error('Failed to fetch login activity:', err);
-            } finally {
-                setLoadingActivity(false);
-            }
-        };
-
-        fetchLoginActivity();
-    }, []);
-
-    // Handle profile update
-    const handleProfileUpdate = async (e) => {
-        e.preventDefault();
-        setSaving(true);
+    const handleSave = async () => {
+        setLoading(true);
         setError('');
         setSuccess('');
 
         try {
-            await updateProfile({
-                fullName: profileData.fullName,
-                phone: profileData.phone || undefined,
-                affiliation: profileData.affiliation || undefined,
-            });
-            setSuccess('Profile updated successfully');
-            setTimeout(() => setSuccess(''), 3000);
+            const res = await api.patch('/v1/users/profile', formData);
+            updateUser(res.data.user);
+            setSuccess('Profile updated successfully!');
+            setEditing(false);
+
+            // Success animation
+            gsap.fromTo('.success-msg',
+                { y: -20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.5, ease: 'back.out(2)' }
+            );
         } catch (err) {
-            console.error('Failed to update profile:', err);
-            setError(err.error || 'Failed to update profile');
+            setError(err.response?.data?.error || 'Failed to update profile');
         } finally {
-            setSaving(false);
+            setLoading(false);
         }
     };
 
-    // Handle notification preferences update
-    const handleNotifPrefsUpdate = async () => {
-        setSavingNotifPrefs(true);
-        setError('');
-
-        try {
-            await api.put('/v1/users/notification-preferences', {
-                channels: notifPrefs.channels,
-            });
-            setSuccess('Notification preferences updated');
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (err) {
-            console.error('Failed to update notification preferences:', err);
-            setError(err.response?.data?.error || 'Failed to update notification preferences');
-        } finally {
-            setSavingNotifPrefs(false);
+    const getRoleColor = (role) => {
+        switch (role) {
+            case 'admin': return { color: '#f59e0b', bg: 'from-amber-500/20 to-orange-500/20', border: 'border-amber-500/30' };
+            case 'delegated_admin': return { color: '#8b5cf6', bg: 'from-violet-500/20 to-purple-500/20', border: 'border-violet-500/30' };
+            case 'faculty': return { color: '#10b981', bg: 'from-emerald-500/20 to-teal-500/20', border: 'border-emerald-500/30' };
+            default: return { color: '#0ea5e9', bg: 'from-cyan-500/20 to-blue-500/20', border: 'border-cyan-500/30' };
         }
     };
 
-    // Toggle notification channel
-    const toggleNotifChannel = (channel) => {
-        setNotifPrefs((prev) => ({
-            ...prev,
-            channels: {
-                ...prev.channels,
-                [channel]: !prev.channels[channel],
-            },
-        }));
-    };
-
-    // Format date
-    const formatDate = (date) => {
-        if (!date) return 'N/A';
-        return new Date(date).toLocaleString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
-
-    // Get event type icon and color
-    const getEventTypeStyle = (eventType) => {
-        switch (eventType) {
-            case 'success':
-                return {
-                    icon: CheckCircle,
-                    color: 'text-green-400',
-                    bg: 'bg-green-500/20',
-                    label: 'Login Success',
-                };
-            case 'failure':
-                return {
-                    icon: AlertCircle,
-                    color: 'text-red-400',
-                    bg: 'bg-red-500/20',
-                    label: 'Login Failed',
-                };
-            case 'logout':
-                return {
-                    icon: Shield,
-                    color: 'text-blue-400',
-                    bg: 'bg-blue-500/20',
-                    label: 'Logout',
-                };
-            default:
-                return {
-                    icon: Clock,
-                    color: 'text-slate-400',
-                    bg: 'bg-slate-500/20',
-                    label: 'Unknown',
-                };
-        }
-    };
-
-    // Get device icon
-    const getDeviceIcon = (deviceType) => {
-        if (!deviceType) return Monitor;
-        const lower = deviceType.toLowerCase();
-        if (lower.includes('mobile') || lower.includes('android') || lower.includes('iphone')) {
-            return Smartphone;
-        }
-        return Monitor;
-    };
+    const roleConfig = getRoleColor(user?.role);
 
     return (
-        <>
-            <Sidebar />
-            <div className="min-h-screen bg-slate-950">
-                {/* Header */}
-                <div className="bg-slate-900 border-b border-slate-800">
-                    <div className="max-w-4xl mx-auto px-4 py-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white">Profile Settings</h1>
-                                <p className="text-slate-400 text-sm mt-1">Manage your account settings</p>
-                            </div>
-                            <Link to="/dashboard" className="text-slate-400 hover:text-white text-sm">
-                                ← Back to Dashboard
-                            </Link>
-                        </div>
-                    </div>
+        <div ref={containerRef} className="min-h-screen bg-[#030712] text-white overflow-hidden relative">
+            {/* Background Effects */}
+            <div className="fixed inset-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4">
+                    <MorphingBlob color1="#0ea5e9" color2="#8b5cf6" size={500} />
                 </div>
-
-                {/* Content */}
-                <div className="max-w-4xl mx-auto px-4 py-8">
-                    {/* Messages */}
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 flex items-center gap-3">
-                            <AlertCircle size={20} />
-                            {error}
-                            <button onClick={() => setError('')} className="ml-auto">
-                                <X size={18} />
-                            </button>
-                        </div>
-                    )}
-
-                    {success && (
-                        <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 flex items-center gap-3">
-                            <CheckCircle size={20} />
-                            {success}
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Profile Section */}
-                        <div className="lg:col-span-2 space-y-6">
-                            {/* Profile Card */}
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <User size={24} className="text-primary-500" />
-                                    <h2 className="text-lg font-semibold text-white">Personal Information</h2>
-                                </div>
-
-                                <form onSubmit={handleProfileUpdate} className="space-y-4">
-                                    {/* Full Name */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Full Name</label>
-                                        <div className="relative">
-                                            <User
-                                                size={18}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={profileData.fullName}
-                                                onChange={(e) =>
-                                                    setProfileData((prev) => ({ ...prev, fullName: e.target.value }))
-                                                }
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                                                placeholder="Your full name"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Email (Read-only) */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Email</label>
-                                        <div className="relative">
-                                            <Mail
-                                                size={18}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                                            />
-                                            <input
-                                                type="email"
-                                                value={user?.email || ''}
-                                                disabled
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-500 cursor-not-allowed"
-                                            />
-                                        </div>
-                                        <p className="text-slate-500 text-xs mt-1">Email cannot be changed</p>
-                                    </div>
-
-                                    {/* Phone */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Phone Number</label>
-                                        <div className="relative">
-                                            <Phone
-                                                size={18}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                                            />
-                                            <input
-                                                type="tel"
-                                                value={profileData.phone}
-                                                onChange={(e) =>
-                                                    setProfileData((prev) => ({ ...prev, phone: e.target.value }))
-                                                }
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                                                placeholder="+91 9876543210"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Affiliation */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Affiliation</label>
-                                        <div className="relative">
-                                            <Building
-                                                size={18}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={profileData.affiliation}
-                                                onChange={(e) =>
-                                                    setProfileData((prev) => ({ ...prev, affiliation: e.target.value }))
-                                                }
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                                                placeholder="e.g., CSE Department"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Role (Read-only) */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Role</label>
-                                        <div className="relative">
-                                            <Shield
-                                                size={18}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={user?.role?.replace('_', ' ').toUpperCase() || 'STUDENT'}
-                                                disabled
-                                                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-500 cursor-not-allowed capitalize"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Submit */}
-                                    <button
-                                        type="submit"
-                                        disabled={saving}
-                                        className="w-full flex items-center justify-center gap-2 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white font-medium rounded-xl transition-colors"
-                                    >
-                                        {saving ? (
-                                            <>
-                                                <Loader2 size={18} className="animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save size={18} />
-                                                Save Changes
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
-                            </div>
-
-                            {/* Notification Preferences */}
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <Bell size={24} className="text-primary-500" />
-                                    <h2 className="text-lg font-semibold text-white">Notification Preferences</h2>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {/* Email Notifications */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl">
-                                        <div className="flex items-center gap-3">
-                                            <Mail size={20} className="text-slate-400" />
-                                            <div>
-                                                <p className="text-white font-medium">Email Notifications</p>
-                                                <p className="text-slate-500 text-sm">Receive updates via email</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => toggleNotifChannel('email')}
-                                            className={`w-12 h-6 rounded-full transition-colors relative ${notifPrefs.channels.email ? 'bg-primary-500' : 'bg-slate-700'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifPrefs.channels.email ? 'left-7' : 'left-1'
-                                                    }`}
-                                            />
-                                        </button>
-                                    </div>
-
-                                    {/* Push Notifications */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl">
-                                        <div className="flex items-center gap-3">
-                                            <Bell size={20} className="text-slate-400" />
-                                            <div>
-                                                <p className="text-white font-medium">Push Notifications</p>
-                                                <p className="text-slate-500 text-sm">Receive in-app notifications</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => toggleNotifChannel('push')}
-                                            className={`w-12 h-6 rounded-full transition-colors relative ${notifPrefs.channels.push ? 'bg-primary-500' : 'bg-slate-700'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifPrefs.channels.push ? 'left-7' : 'left-1'
-                                                    }`}
-                                            />
-                                        </button>
-                                    </div>
-
-                                    {/* SMS Notifications */}
-                                    <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl">
-                                        <div className="flex items-center gap-3">
-                                            <Phone size={20} className="text-slate-400" />
-                                            <div>
-                                                <p className="text-white font-medium">SMS Notifications</p>
-                                                <p className="text-slate-500 text-sm">Receive updates via SMS</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => toggleNotifChannel('sms')}
-                                            className={`w-12 h-6 rounded-full transition-colors relative ${notifPrefs.channels.sms ? 'bg-primary-500' : 'bg-slate-700'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifPrefs.channels.sms ? 'left-7' : 'left-1'
-                                                    }`}
-                                            />
-                                        </button>
-                                    </div>
-
-                                    {/* Save Notification Preferences */}
-                                    <button
-                                        onClick={handleNotifPrefsUpdate}
-                                        disabled={savingNotifPrefs}
-                                        className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 text-white font-medium rounded-xl transition-colors"
-                                    >
-                                        {savingNotifPrefs ? (
-                                            <>
-                                                <Loader2 size={18} className="animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save size={18} />
-                                                Save Preferences
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sidebar - Login Activity */}
-                        <div className="lg:col-span-1">
-                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <Clock size={24} className="text-primary-500" />
-                                    <h2 className="text-lg font-semibold text-white">Login Activity</h2>
-                                </div>
-
-                                {loadingActivity ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <Loader2 size={24} className="animate-spin text-primary-500" />
-                                    </div>
-                                ) : loginActivity.length === 0 ? (
-                                    <p className="text-slate-500 text-center py-8">No login activity found</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {loginActivity.map((activity, index) => {
-                                            const style = getEventTypeStyle(activity.eventType);
-                                            const DeviceIcon = getDeviceIcon(activity.deviceType);
-
-                                            return (
-                                                <div
-                                                    key={activity._id || index}
-                                                    className="p-3 bg-slate-800/50 rounded-lg"
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`p-2 rounded-lg ${style.bg}`}>
-                                                            <style.icon size={16} className={style.color} />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className={`text-sm font-medium ${style.color}`}>
-                                                                {style.label}
-                                                            </p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                                                <DeviceIcon size={12} />
-                                                                <span className="truncate">
-                                                                    {activity.deviceType?.slice(0, 30) || 'Unknown device'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                                                <MapPin size={12} />
-                                                                <span>{activity.location || 'Unknown location'}</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-600 mt-1">
-                                                                {formatDate(activity.timestamp)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                <div className="absolute bottom-1/4 right-1/4">
+                    <MorphingBlob color1="#8b5cf6" color2="#ec4899" size={400} />
                 </div>
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.015)_1px,transparent_1px)] bg-[size:60px_60px]" />
             </div>
-        </>
+
+            <Sidebar />
+
+            <main className="pl-4 md:pl-8 pr-4 md:pr-8 py-8 relative z-10">
+                <div className="max-w-4xl mx-auto">
+                    {/* Header */}
+                    <div className="profile-header text-center mb-12">
+                        {/* Avatar */}
+                        <div className="profile-avatar relative inline-block mb-6">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-5xl font-black shadow-2xl shadow-primary-500/30">
+                                {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                            <div className={`absolute -bottom-2 -right-2 p-3 rounded-full bg-gradient-to-br ${roleConfig.bg} ${roleConfig.border} border shadow-lg`}>
+                                <Shield size={20} style={{ color: roleConfig.color }} />
+                            </div>
+                        </div>
+
+                        <h1 className="text-4xl md:text-5xl font-black mb-2">
+                            <GlitchText text={user?.fullName || 'User'} />
+                        </h1>
+                        <p className="text-slate-400 text-lg capitalize">
+                            <NeonText color={roleConfig.color}>{user?.role?.replace('_', ' ') || 'Student'}</NeonText>
+                        </p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-4 mb-10">
+                        {[
+                            { icon: Package, label: 'Items Reported', value: stats.totalReported || 0, color: '#0ea5e9' },
+                            { icon: FileText, label: 'Claims Made', value: stats.totalClaims || 0, color: '#8b5cf6' },
+                            { icon: CheckCircle, label: 'Resolved', value: stats.resolvedItems || 0, color: '#10b981' }
+                        ].map((stat, i) => {
+                            const Icon = stat.icon;
+                            return (
+                                <TiltCard key={i} className="stat-item" intensity={0.3}>
+                                    <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl text-center">
+                                        <div
+                                            className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
+                                            style={{
+                                                background: `linear-gradient(135deg, ${stat.color}20, transparent)`,
+                                                border: `1px solid ${stat.color}30`
+                                            }}
+                                        >
+                                            <Icon size={24} style={{ color: stat.color }} />
+                                        </div>
+                                        <p className="stat-value text-3xl font-black text-white mb-1" data-value={stat.value}>
+                                            {stat.value}
+                                        </p>
+                                        <p className="text-slate-400 text-sm">{stat.label}</p>
+                                    </div>
+                                </TiltCard>
+                            );
+                        })}
+                    </div>
+
+                    {/* Messages */}
+                    {success && (
+                        <div className="success-msg mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 flex items-center gap-3">
+                            <CheckCircle size={20} />
+                            <span>{success}</span>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-3">
+                            <AlertCircle size={20} />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    {/* Profile Card */}
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {/* Personal Info */}
+                        <div className="profile-card" style={{ perspective: 1000 }}>
+                            <TiltCard intensity={0.15}>
+                                <GradientBorderCard>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                            <User size={20} className="text-cyan-400" />
+                                            Personal Information
+                                        </h2>
+                                        {!editing ? (
+                                            <ElasticButton
+                                                onClick={() => setEditing(true)}
+                                                className="p-2.5 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors"
+                                            >
+                                                <Edit3 size={18} />
+                                            </ElasticButton>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <ElasticButton
+                                                    onClick={() => { setEditing(false); setFormData({ fullName: user?.fullName, phone: user?.phone }); }}
+                                                    className="p-2.5 bg-slate-800 rounded-xl text-slate-300 hover:text-white"
+                                                >
+                                                    <X size={18} />
+                                                </ElasticButton>
+                                                <ElasticButton
+                                                    onClick={handleSave}
+                                                    disabled={loading}
+                                                    className="p-2.5 bg-emerald-600 rounded-xl text-white"
+                                                >
+                                                    {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                                </ElasticButton>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-5">
+                                        <div>
+                                            <label className="block text-slate-400 text-sm mb-2">Full Name</label>
+                                            {editing ? (
+                                                <input
+                                                    type="text"
+                                                    value={formData.fullName}
+                                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                                />
+                                            ) : (
+                                                <p className="text-white font-medium">{user?.fullName}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-400 text-sm mb-2">Phone</label>
+                                            {editing ? (
+                                                <input
+                                                    type="tel"
+                                                    value={formData.phone}
+                                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                    placeholder="Add phone number"
+                                                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                                />
+                                            ) : (
+                                                <p className="text-white font-medium">{user?.phone || 'Not provided'}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </GradientBorderCard>
+                            </TiltCard>
+                        </div>
+
+                        {/* Account Info */}
+                        <div className="profile-card" style={{ perspective: 1000 }}>
+                            <TiltCard intensity={0.15}>
+                                <GradientBorderCard>
+                                    <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
+                                        <Shield size={20} className="text-violet-400" />
+                                        Account Details
+                                    </h2>
+
+                                    <div className="space-y-5">
+                                        <div>
+                                            <label className="block text-slate-400 text-sm mb-2">Email</label>
+                                            <div className="flex items-center gap-3">
+                                                <Mail size={18} className="text-slate-500" />
+                                                <p className="text-white font-medium">{user?.email}</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-400 text-sm mb-2">Role</label>
+                                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r ${roleConfig.bg} ${roleConfig.border} border`}>
+                                                <Shield size={16} style={{ color: roleConfig.color }} />
+                                                <span className="capitalize font-semibold" style={{ color: roleConfig.color }}>
+                                                    {user?.role?.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-400 text-sm mb-2">Member Since</label>
+                                            <div className="flex items-center gap-3">
+                                                <Calendar size={18} className="text-slate-500" />
+                                                <p className="text-white font-medium">
+                                                    {user?.createdAt
+                                                        ? new Date(user.createdAt).toLocaleDateString('en-US', {
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        })
+                                                        : 'Unknown'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </GradientBorderCard>
+                            </TiltCard>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
     );
 };
 
