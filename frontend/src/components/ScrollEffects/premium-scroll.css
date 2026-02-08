@@ -1,0 +1,448 @@
+/**
+ * Premium Scroll Effects CSS
+ * Styles for the advanced scroll-based animations
+ */
+
+/* ============================================
+   NOISE ANIMATION
+   ============================================ */
+@keyframes noise {
+
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+
+    10% {
+        transform: translate(-5%, -5%);
+    }
+
+    20% {
+        transform: translate(-10%, 5%);
+    }
+
+    30% {
+        transform: translate(5%, -10%);
+    }
+
+    40% {
+        transform: translate(-5%, 15%);
+    }
+
+    50% {
+        transform: translate(-10%, 5%);
+    }
+
+    60% {
+        transform: translate(15%, 0);
+    }
+
+    70% {
+        transform: translate(0, 10%);
+    }
+
+    80% {
+        transform: translate(-15%, 0);
+    }
+
+    90% {
+        transform: translate(10%, 5%);
+    }
+}
+
+/* ============================================
+   SPLIT TEXT REVEAL
+   ============================================ */
+.split-text-container {
+    overflow: hidden;
+    display: inline-block;
+}
+
+.split-char {
+    display: inline-block;
+    overflow: hidden;
+}
+
+.split-char>span {
+    display: inline-block;
+    will-change: transform;
+}
+
+/* Hero Split Text Style */
+.hero-split-text {
+    font-size: clamp(3rem, 10vw, 8rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.05em;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f5576c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ============================================
+   HERO REVEAL SECTION
+   ============================================ */
+.hero-reveal-section {
+    position: relative;
+    contain: layout style;
+}
+
+.hero-reveal-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.hero-reveal-content {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    transform-origin: top center;
+}
+
+/* ============================================
+   FLOATING 3D CARDS
+   ============================================ */
+.floating-3d-card {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.floating-3d-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.1) 0%,
+            rgba(255, 255, 255, 0) 50%);
+    pointer-events: none;
+}
+
+.floating-3d-card:hover {
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(102, 126, 234, 0.3);
+}
+
+/* ============================================
+   PARALLAX LAYERS
+   ============================================ */
+.parallax-layer {
+    will-change: transform;
+    transform-style: preserve-3d;
+}
+
+.parallax-container {
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    perspective: 1000px;
+}
+
+/* ============================================
+   HUD OVERLAY STYLES
+   ============================================ */
+.hud-overlay {
+    position: fixed;
+    inset: 2rem;
+    z-index: 100;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.hud-top,
+.hud-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hud-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.2) 50%,
+            transparent 100%);
+    margin: 0 1rem;
+    position: relative;
+}
+
+.hud-line::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -2px;
+    width: 5px;
+    height: 5px;
+    background: #ff003c;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.5);
+    }
+}
+
+.hud-value {
+    color: #00f3ff;
+    font-weight: bold;
+}
+
+/* ============================================
+   SCROLL PROGRESS BAR
+   ============================================ */
+.scroll-progress-bar {
+    will-change: transform;
+    box-shadow: 0 0 10px currentColor;
+}
+
+/* ============================================
+   STAGGERED REVEAL
+   ============================================ */
+.staggered-reveal-container>* {
+    will-change: transform, opacity;
+}
+
+/* ============================================
+   CHROMATIC ABERRATION EFFECT
+   ============================================ */
+.chromatic-aberration {
+    mix-blend-mode: screen;
+    transition: box-shadow 0.1s ease-out;
+}
+
+/* ============================================
+   3D PERSPECTIVE CONTAINER
+   ============================================ */
+.perspective-3d-world {
+    transform-style: preserve-3d;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ============================================
+   GLASSMORPHISM CARDS (Option 2 style)
+   ============================================ */
+.glass-card {
+    background: rgba(10, 10, 10, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.glass-card:hover {
+    border-color: #667eea;
+    box-shadow:
+        0 0 30px rgba(102, 126, 234, 0.3),
+        0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    transform: translateY(-5px);
+}
+
+/* Corner decorations */
+.glass-card::before,
+.glass-card::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.glass-card::before {
+    top: -1px;
+    left: -1px;
+    border-top-color: rgba(255, 255, 255, 0.3);
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+.glass-card::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    border-right-color: rgba(255, 255, 255, 0.3);
+}
+
+.glass-card:hover::before,
+.glass-card:hover::after {
+    width: 100%;
+    height: 100%;
+    border-color: #667eea;
+}
+
+/* ============================================
+   WIDE TEXT (Option 3 style)
+   ============================================ */
+.c-wide-text {
+    font-size: clamp(2rem, 8vw, 6rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 2px rgba(255, 255, 255, 0.6);
+    text-stroke: 2px rgba(255, 255, 255, 0.6);
+}
+
+.c-wide-text.-split {
+    clip-path: inset(0 0 0 0);
+}
+
+/* ============================================
+   SCROLL-LINKED ANIMATIONS
+   ============================================ */
+[data-scroll] {
+    will-change: transform, opacity;
+}
+
+[data-scroll="fade-up"] {
+    opacity: 0;
+    transform: translateY(60px);
+    transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-scroll="fade-up"].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+[data-scroll="scale-up"] {
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-scroll="scale-up"].is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* ============================================
+   GRADIENT BACKGROUNDS
+   ============================================ */
+.gradient-bg-animated {
+    background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* ============================================
+   STAR FIELD (Option 1 style)
+   ============================================ */
+.star-field {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    opacity: 0;
+    animation: twinkle 3s infinite;
+}
+
+@keyframes twinkle {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+.star:nth-child(3n) {
+    animation-delay: 0.5s;
+}
+
+.star:nth-child(5n) {
+    animation-delay: 1s;
+}
+
+.star:nth-child(7n) {
+    animation-delay: 1.5s;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 768px) {
+    .hero-split-text {
+        font-size: clamp(2rem, 12vw, 4rem);
+    }
+
+    .hud-overlay {
+        inset: 1rem;
+        font-size: 8px;
+    }
+
+    .c-wide-text {
+        font-size: clamp(1.5rem, 10vw, 3rem);
+        letter-spacing: 0.15em;
+    }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .scanline-overlay,
+    .noise-overlay,
+    .chromatic-aberration {
+        display: none;
+    }
+}
