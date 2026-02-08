@@ -1,422 +1,442 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Filter, Grid, List, MapPin, Clock, Tag, Loader2, Package, AlertCircle } from 'lucide-react';
+/**
+ * PREMIUM ITEM INVENTORY PAGE
+ * With advanced effects from CodePen inspirations
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
-
-const CATEGORIES = [
-    'All',
-    'Electronics',
-    'Documents',
-    'Accessories',
-    'Clothing',
-    'Books',
-    'Keys',
-    'Bags',
-    'Sports Equipment',
-    'Other',
-];
+import { gsap } from 'gsap';
+import {
+    Search,
+    Filter,
+    Package,
+    MapPin,
+    Calendar,
+    Tag,
+    Eye,
+    ArrowUpRight,
+    Loader2,
+    X,
+    Grid,
+    List,
+    ChevronDown,
+    Sparkles,
+    SlidersHorizontal
+} from 'lucide-react';
+import {
+    MorphingBlob,
+    GlitchText,
+    TiltCard,
+    GradientBorderCard,
+    ElasticButton,
+    PulseRings,
+    RippleButton,
+    HolographicCard,
+    ScrambleLink
+} from '../effects';
 
 const ItemInventory = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [viewMode, setViewMode] = useState('grid');
-    const [pagination, setPagination] = useState({
-        page: 1,
-        limit: 20,
-        total: 0,
-        totalPages: 0,
-    });
-
-    // Filters
+    const [search, setSearch] = useState(searchParams.get('search') || '');
     const [filters, setFilters] = useState({
-        q: '',
-        submissionType: 'all',
-        category: 'All',
-        status: '',
+        type: searchParams.get('type') || '',
+        category: searchParams.get('category') || '',
+        status: searchParams.get('status') || 'reported'
     });
+    const [viewMode, setViewMode] = useState('grid');
+    const [showFilters, setShowFilters] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
 
-    // Debounced search
-    const [searchInput, setSearchInput] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setFilters((prev) => ({ ...prev, q: searchInput }));
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchInput]);
+    const containerRef = useRef(null);
+    const gridRef = useRef(null);
 
     // Fetch items
-    useEffect(() => {
-        const fetchItems = async () => {
-            setLoading(true);
-            setError('');
-
-            try {
-                // Build query params
-                const params = new URLSearchParams();
-
-                if (filters.q) {
-                    params.append('q', filters.q);
-                }
-                if (filters.submissionType && filters.submissionType !== 'all') {
-                    params.append('submissionType', filters.submissionType);
-                }
-                if (filters.category && filters.category !== 'All') {
-                    params.append('category', filters.category);
-                }
-                if (filters.status) {
-                    params.append('status', filters.status);
-                }
-                params.append('page', pagination.page.toString());
-                params.append('limit', pagination.limit.toString());
-
-                const response = await api.get(`/v1/items?${params.toString()}`);
-
-                // Backend returns { items, pagination }
-                const data = response.data;
-
-                if (data.items) {
-                    setItems(data.items);
-                    setPagination((prev) => ({
-                        ...prev,
-                        total: data.pagination?.total || 0,
-                        totalPages: data.pagination?.totalPages || 0,
-                    }));
-                } else if (Array.isArray(data)) {
-                    // Fallback if backend returns just array
-                    setItems(data);
-                } else {
-                    setItems([]);
-                }
-            } catch (err) {
-                console.error('Failed to fetch items:', err);
-                setError(err.response?.data?.error || 'Failed to load items');
+    const fetchItems = useCallback(async (reset = false) => {
+        try {
+            if (reset) {
+                setPage(1);
                 setItems([]);
-            } finally {
-                setLoading(false);
             }
-        };
 
-        fetchItems();
-    }, [filters, pagination.page, pagination.limit]);
+            const params = new URLSearchParams({
+                page: reset ? 1 : page,
+                limit: 12,
+                ...(search && { search }),
+                ...(filters.type && { type: filters.type }),
+                ...(filters.category && { category: filters.category }),
+                ...(filters.status && { status: filters.status })
+            });
 
-    // Handle category click
-    const handleCategoryClick = (category) => {
-        setFilters((prev) => ({ ...prev, category }));
-        setPagination((prev) => ({ ...prev, page: 1 }));
-    };
+            const res = await api.get(`/v1/items?${params}`);
+            const newItems = res.data.items || [];
 
-    // Handle type filter
-    const handleTypeFilter = (type) => {
-        setFilters((prev) => ({ ...prev, submissionType: type }));
-        setPagination((prev) => ({ ...prev, page: 1 }));
-    };
+            if (reset) {
+                setItems(newItems);
+            } else {
+                setItems(prev => [...prev, ...newItems]);
+            }
 
-    // Get status badge style
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case 'resolved':
-                return 'bg-green-500/20 text-green-400 border-green-500/30';
-            case 'matched':
-                return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-            case 'submitted':
-                return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-            case 'draft':
-                return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
-            default:
-                return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+            setHasMore(newItems.length === 12);
+        } catch (error) {
+            console.error('Failed to fetch items:', error);
+        } finally {
+            setLoading(false);
         }
+    }, [page, search, filters]);
+
+    useEffect(() => {
+        setLoading(true);
+        fetchItems(true);
+    }, [search, filters]);
+
+    // GSAP Animations
+    useEffect(() => {
+        if (loading) return;
+
+        const ctx = gsap.context(() => {
+            // Header animation
+            gsap.fromTo('.inventory-header',
+                { y: -40, opacity: 0, filter: 'blur(10px)' },
+                { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }
+            );
+
+            // Search bar
+            gsap.fromTo('.search-container',
+                { y: 30, opacity: 0, scale: 0.95 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.6, delay: 0.2, ease: 'back.out(1.7)' }
+            );
+
+            // Filter pills
+            gsap.fromTo('.filter-pill',
+                { y: 20, opacity: 0, scale: 0.9 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.5, stagger: 0.05, delay: 0.4, ease: 'back.out(2)' }
+            );
+
+            // Grid items stagger
+            gsap.fromTo('.item-card',
+                { y: 60, opacity: 0, scale: 0.9, rotateX: 15 },
+                {
+                    y: 0,
+                    opacity: 1,
+                    scale: 1,
+                    rotateX: 0,
+                    duration: 0.7,
+                    stagger: { amount: 0.5, from: 'start', grid: 'auto' },
+                    delay: 0.3,
+                    ease: 'power4.out'
+                }
+            );
+
+        }, containerRef);
+
+        return () => ctx.revert();
+    }, [loading, items]);
+
+    const categories = ['Electronics', 'Documents', 'Accessories', 'Clothing', 'Keys', 'Bags', 'Books', 'Other'];
+    const types = [
+        { id: '', label: 'All Items' },
+        { id: 'lost', label: 'Lost' },
+        { id: 'found', label: 'Found' }
+    ];
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('search', search);
+        setSearchParams(newParams);
     };
 
-    // Get type badge style
-    const getTypeBadge = (type) => {
-        return type === 'lost'
-            ? 'bg-red-500/20 text-red-400 border-red-500/30'
-            : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+    const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+        const newParams = new URLSearchParams(searchParams);
+        if (value) {
+            newParams.set(key, value);
+        } else {
+            newParams.delete(key);
+        }
+        setSearchParams(newParams);
     };
 
-    // Format date
-    const formatDate = (date) => {
-        if (!date) return 'N/A';
-        return new Date(date).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
+    const clearFilters = () => {
+        setFilters({ type: '', category: '', status: 'reported' });
+        setSearch('');
+        setSearchParams({});
     };
+
+    const activeFiltersCount = [filters.type, filters.category].filter(Boolean).length + (search ? 1 : 0);
+
+    if (loading && items.length === 0) {
+        return (
+            <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+                <div className="relative">
+                    <PulseRings size={100} color="#0ea5e9" />
+                    <Package className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-400" size={32} />
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <>
+        <div ref={containerRef} className="min-h-screen bg-[#030712] text-white overflow-hidden relative">
+            {/* Background Effects */}
+            <div className="fixed inset-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4">
+                    <MorphingBlob color1="#0ea5e9" color2="#8b5cf6" size={500} />
+                </div>
+                <div className="absolute bottom-1/4 right-1/4">
+                    <MorphingBlob color1="#8b5cf6" color2="#ec4899" size={400} />
+                </div>
+                {/* Grid pattern */}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.015)_1px,transparent_1px)] bg-[size:60px_60px]" />
+            </div>
+
             <Sidebar />
-            <div className="min-h-screen bg-slate-950">
-                {/* Header */}
-                <div className="bg-slate-900 border-b border-slate-800">
-                    <div className="max-w-7xl mx-auto px-4 py-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white">Item Inventory</h1>
-                                <p className="text-slate-400 text-sm mt-1">
-                                    Browse all reported lost and found items
-                                </p>
-                            </div>
-                            <Link
-                                to="/dashboard"
-                                className="text-slate-400 hover:text-white text-sm"
+
+            <main className="pl-4 md:pl-8 pr-4 md:pr-8 py-8 relative z-10">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="inventory-header mb-8">
+                        <h1 className="text-4xl md:text-5xl font-black mb-2">
+                            <span className="bg-gradient-to-r from-primary-400 to-purple-400 bg-clip-text text-transparent">
+                                Item Registry
+                            </span>
+                        </h1>
+                        <p className="text-slate-400 text-lg">
+                            <GlitchText text={`Browse ${items.length}+ items across campus`} />
+                        </p>
+                    </div>
+
+                    {/* Search & Filters */}
+                    <div className="search-container mb-8">
+                        <form onSubmit={handleSearch} className="relative mb-6">
+                            <Search size={22} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search items by name, description, or location..."
+                                className="w-full pl-16 pr-32 py-5 bg-slate-900/60 border border-slate-700/50 rounded-2xl text-lg text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all backdrop-blur-xl placeholder:text-slate-500"
+                            />
+                            <RippleButton
+                                type="submit"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold text-white"
                             >
-                                ← Back to Dashboard
-                            </Link>
-                        </div>
+                                Search
+                            </RippleButton>
+                        </form>
 
-                        {/* Search and Filters */}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            {/* Search */}
-                            <div className="flex-1 relative">
-                                <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    type="text"
-                                    value={searchInput}
-                                    onChange={(e) => setSearchInput(e.target.value)}
-                                    placeholder="Search items..."
-                                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 transition-colors"
-                                />
-                            </div>
-
-                            {/* Type Filter */}
-                            <div className="flex gap-2">
-                                {['all', 'lost', 'found'].map((type) => (
-                                    <button
-                                        key={type}
-                                        onClick={() => handleTypeFilter(type)}
-                                        className={`px-4 py-3 rounded-xl font-medium transition-colors capitalize ${filters.submissionType === type
-                                            ? 'bg-primary-500 text-white'
-                                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                            }`}
-                                    >
-                                        {type === 'all' ? 'All' : type}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* View Toggle */}
-                            <div className="flex bg-slate-800 rounded-xl p-1">
+                        {/* Filter Pills */}
+                        <div className="flex flex-wrap items-center gap-3">
+                            {/* Type Pills */}
+                            {types.map((type) => (
                                 <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-slate-700 text-white' : 'text-slate-400'
+                                    key={type.id}
+                                    onClick={() => handleFilterChange('type', type.id)}
+                                    className={`filter-pill px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${filters.type === type.id
+                                            ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-lg shadow-primary-500/25'
+                                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                                         }`}
                                 >
-                                    <Grid size={20} />
+                                    {type.label}
+                                </button>
+                            ))}
+
+                            <div className="w-px h-8 bg-slate-700 mx-2" />
+
+                            {/* Category Dropdown */}
+                            <div className="filter-pill relative">
+                                <button
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${filters.category
+                                            ? 'bg-purple-600 text-white'
+                                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                        }`}
+                                >
+                                    <SlidersHorizontal size={16} />
+                                    {filters.category || 'Category'}
+                                    <ChevronDown size={16} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {showFilters && (
+                                    <div className="absolute top-full left-0 mt-2 w-56 py-2 bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 backdrop-blur-xl z-50">
+                                        <button
+                                            onClick={() => { handleFilterChange('category', ''); setShowFilters(false); }}
+                                            className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors"
+                                        >
+                                            All Categories
+                                        </button>
+                                        {categories.map((cat) => (
+                                            <button
+                                                key={cat}
+                                                onClick={() => { handleFilterChange('category', cat); setShowFilters(false); }}
+                                                className={`w-full px-4 py-2.5 text-left transition-colors ${filters.category === cat
+                                                        ? 'bg-primary-500/20 text-primary-400'
+                                                        : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                                                    }`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Clear Filters */}
+                            {activeFiltersCount > 0 && (
+                                <button
+                                    onClick={clearFilters}
+                                    className="filter-pill flex items-center gap-2 px-4 py-2.5 rounded-full text-sm text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+                                >
+                                    <X size={14} />
+                                    Clear ({activeFiltersCount})
+                                </button>
+                            )}
+
+                            <div className="ml-auto flex items-center gap-2">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-primary-600 text-white' : 'bg-slate-800/50 text-slate-400'}`}
+                                >
+                                    <Grid size={18} />
                                 </button>
                                 <button
                                     onClick={() => setViewMode('list')}
-                                    className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-slate-700 text-white' : 'text-slate-400'
-                                        }`}
+                                    className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-primary-600 text-white' : 'bg-slate-800/50 text-slate-400'}`}
                                 >
-                                    <List size={20} />
+                                    <List size={18} />
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Category Pills */}
-                        <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                            {CATEGORIES.map((category) => (
-                                <button
-                                    key={category}
-                                    onClick={() => handleCategoryClick(category)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${filters.category === category
-                                        ? 'bg-primary-500 text-white'
-                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                        }`}
-                                >
-                                    {category}
-                                </button>
-                            ))}
                         </div>
                     </div>
-                </div>
 
-                {/* Content */}
-                <div className="max-w-7xl mx-auto px-4 py-6">
-                    {/* Error State */}
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 flex items-center gap-3">
-                            <AlertCircle size={20} />
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Loading State */}
-                    {loading ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 size={40} className="animate-spin text-primary-500" />
-                        </div>
-                    ) : items.length === 0 ? (
-                        /* Empty State */
-                        <div className="text-center py-20">
-                            <Package size={60} className="mx-auto text-slate-600 mb-4" />
-                            <h3 className="text-xl font-semibold text-white mb-2">No items found</h3>
-                            <p className="text-slate-400">
-                                {filters.q || filters.category !== 'All' || filters.submissionType !== 'all'
-                                    ? 'Try adjusting your filters'
-                                    : 'No items have been reported yet'}
-                            </p>
-                        </div>
-                    ) : (
+                    {/* Items Grid */}
+                    {items.length > 0 ? (
                         <>
-                            {/* Results Count */}
-                            <div className="mb-4 text-slate-400 text-sm">
-                                Showing {items.length} of {pagination.total} items
+                            <div
+                                ref={gridRef}
+                                className={`${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-4'}`}
+                                style={{ perspective: 1000 }}
+                            >
+                                {items.map((item, i) => (
+                                    <Link key={item._id} to={`/items/${item._id}`}>
+                                        <TiltCard className="item-card h-full" intensity={0.3}>
+                                            <HolographicCard className="h-full">
+                                                <div className={`bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl rounded-2xl overflow-hidden h-full group ${viewMode === 'list' ? 'flex' : ''}`}>
+                                                    {/* Image */}
+                                                    <div className={`relative overflow-hidden ${viewMode === 'list' ? 'w-40 h-40 flex-shrink-0' : 'aspect-square'}`}>
+                                                        {item.images?.[0] ? (
+                                                            <img
+                                                                src={item.images[0]}
+                                                                alt={item.title}
+                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                                                                <Package size={48} className="text-slate-600" />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Type Badge */}
+                                                        <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold ${item.type === 'lost'
+                                                                ? 'bg-red-500/90 text-white'
+                                                                : 'bg-emerald-500/90 text-white'
+                                                            }`}>
+                                                            {item.type?.toUpperCase()}
+                                                        </div>
+
+                                                        {/* Hover Overlay */}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                                                            <span className="text-white text-sm font-semibold flex items-center gap-2">
+                                                                <Eye size={16} />
+                                                                View Details
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="p-5">
+                                                        <h3 className="font-bold text-white text-lg mb-2 line-clamp-1 group-hover:text-primary-400 transition-colors">
+                                                            {item.title}
+                                                        </h3>
+
+                                                        <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+                                                            {item.description || 'No description provided'}
+                                                        </p>
+
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                                                                <MapPin size={14} className="text-cyan-400" />
+                                                                <span className="truncate">{item.location?.zone || 'Unknown location'}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                                                                <Calendar size={14} className="text-violet-400" />
+                                                                <span>{new Date(item.date || item.createdAt).toLocaleDateString()}</span>
+                                                            </div>
+                                                            {item.category && (
+                                                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                                                    <Tag size={14} className="text-amber-400" />
+                                                                    <span>{item.category}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </HolographicCard>
+                                        </TiltCard>
+                                    </Link>
+                                ))}
                             </div>
 
-                            {/* Grid View */}
-                            {viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {items.map((item) => (
-                                        <Link
-                                            key={item._id}
-                                            to={`/item/${item._id}`}
-                                            className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors group"
-                                        >
-                                            {/* Image or Placeholder */}
-                                            <div className="h-40 bg-slate-800 flex items-center justify-center">
-                                                {item.images && item.images.length > 0 ? (
-                                                    <img
-                                                        src={item.images[0]}
-                                                        alt={item.itemAttributes?.description}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <Package size={40} className="text-slate-600" />
-                                                )}
-                                            </div>
-
-                                            <div className="p-4">
-                                                {/* Badges */}
-                                                <div className="flex gap-2 mb-2">
-                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getTypeBadge(item.submissionType)}`}>
-                                                        {item.submissionType?.toUpperCase()}
-                                                    </span>
-                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(item.status)}`}>
-                                                        {item.status}
-                                                    </span>
-                                                </div>
-
-                                                {/* Category */}
-                                                <div className="flex items-center gap-1 text-slate-400 text-xs mb-2">
-                                                    <Tag size={12} />
-                                                    {item.itemAttributes?.category || 'Uncategorized'}
-                                                </div>
-
-                                                {/* Description */}
-                                                <p className="text-white text-sm line-clamp-2 mb-3">
-                                                    {item.itemAttributes?.description || 'No description'}
-                                                </p>
-
-                                                {/* Meta */}
-                                                <div className="flex items-center justify-between text-xs text-slate-500">
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock size={12} />
-                                                        {formatDate(item.timeMetadata?.lostOrFoundAt)}
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <MapPin size={12} />
-                                                        {item.location?.zoneId?.zoneName || 'Unknown'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            ) : (
-                                /* List View */
-                                <div className="space-y-3">
-                                    {items.map((item) => (
-                                        <Link
-                                            key={item._id}
-                                            to={`/item/${item._id}`}
-                                            className="flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition-colors"
-                                        >
-                                            {/* Image or Placeholder */}
-                                            <div className="w-20 h-20 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                {item.images && item.images.length > 0 ? (
-                                                    <img
-                                                        src={item.images[0]}
-                                                        alt={item.itemAttributes?.description}
-                                                        className="w-full h-full object-cover rounded-lg"
-                                                    />
-                                                ) : (
-                                                    <Package size={24} className="text-slate-600" />
-                                                )}
-                                            </div>
-
-                                            {/* Content */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getTypeBadge(item.submissionType)}`}>
-                                                        {item.submissionType?.toUpperCase()}
-                                                    </span>
-                                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getStatusBadge(item.status)}`}>
-                                                        {item.status}
-                                                    </span>
-                                                    <span className="text-slate-500 text-xs">
-                                                        {item.itemAttributes?.category}
-                                                    </span>
-                                                </div>
-                                                <p className="text-white text-sm truncate">
-                                                    {item.itemAttributes?.description || 'No description'}
-                                                </p>
-                                                <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock size={12} />
-                                                        {formatDate(item.timeMetadata?.lostOrFoundAt)}
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <MapPin size={12} />
-                                                        {item.location?.zoneId?.zoneName || 'Unknown'}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Tracking ID */}
-                                            <div className="text-right flex-shrink-0">
-                                                <div className="text-xs text-slate-500">Tracking ID</div>
-                                                <div className="text-sm text-primary-400 font-mono">
-                                                    {item.trackingId?.slice(-8) || 'N/A'}
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Pagination */}
-                            {pagination.totalPages > 1 && (
-                                <div className="flex items-center justify-center gap-2 mt-8">
-                                    <button
-                                        onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-                                        disabled={pagination.page === 1}
-                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
+                            {/* Load More */}
+                            {hasMore && (
+                                <div className="text-center mt-12">
+                                    <ElasticButton
+                                        onClick={() => { setPage(prev => prev + 1); fetchItems(); }}
+                                        className="px-8 py-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-white font-bold hover:bg-slate-700/50 transition-all"
                                     >
-                                        Previous
-                                    </button>
-                                    <span className="text-slate-400 px-4">
-                                        Page {pagination.page} of {pagination.totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-                                        disabled={pagination.page === pagination.totalPages}
-                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
-                                    >
-                                        Next
-                                    </button>
+                                        {loading ? (
+                                            <Loader2 size={20} className="animate-spin mx-auto" />
+                                        ) : (
+                                            'Load More Items'
+                                        )}
+                                    </ElasticButton>
                                 </div>
                             )}
                         </>
+                    ) : (
+                        /* Empty State */
+                        <div className="text-center py-20">
+                            <div className="inline-flex p-6 bg-slate-800/30 rounded-3xl mb-6">
+                                <Package size={64} className="text-slate-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-3">No items found</h2>
+                            <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                                {search || filters.type || filters.category
+                                    ? 'Try adjusting your search or filters'
+                                    : 'Be the first to report an item in this category'}
+                            </p>
+                            <div className="flex justify-center gap-4">
+                                {(search || filters.type || filters.category) && (
+                                    <ElasticButton onClick={clearFilters} className="px-6 py-3 bg-slate-800 rounded-xl text-white">
+                                        Clear Filters
+                                    </ElasticButton>
+                                )}
+                                <Link to="/report">
+                                    <ElasticButton className="px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl text-white font-bold">
+                                        Report Item
+                                    </ElasticButton>
+                                </Link>
+                            </div>
+                        </div>
                     )}
                 </div>
-            </div>
-        </>
+            </main>
+        </div>
     );
 };
 

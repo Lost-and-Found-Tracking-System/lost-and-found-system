@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { gsap } from 'gsap';
 import { useAuth } from '../../context/AuthContext';
 import AdminSidebar from '../../components/AdminSidebar';
 import {
@@ -14,26 +15,24 @@ import {
     CheckCircle,
     Building,
     Trees,
+    Compass
 } from 'lucide-react';
 import api from '../../services/api';
+import { usePageTransition, useMagneticHover, use3DTilt } from '../../hooks/useGSAPAnimations';
 
 const ZONE_TYPES = [
-    { value: 'building', label: 'Building', icon: Building },
-    { value: 'outdoor', label: 'Outdoor', icon: Trees },
+    { value: 'building', label: 'Building', icon: Building, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+    { value: 'outdoor', label: 'Outdoor', icon: Trees, color: 'text-green-400', bg: 'bg-green-500/10' },
 ];
 
 const ZoneManagement = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-
-    // Zones data
     const [zones, setZones] = useState([]);
-
-    // Form state
     const [showForm, setShowForm] = useState(false);
     const [editingZone, setEditingZone] = useState(null);
     const [formData, setFormData] = useState({
@@ -42,10 +41,35 @@ const ZoneManagement = () => {
         zoneType: 'building',
     });
 
-    // Fetch zones
+    const containerRef = useRef(null);
+    const formRef = useRef(null);
+    const listRef = useRef(null);
+
+    usePageTransition(containerRef);
+
     useEffect(() => {
         fetchZones();
     }, []);
+
+    // Animate form open/close
+    useEffect(() => {
+        if (showForm && formRef.current) {
+            gsap.fromTo(formRef.current,
+                { height: 0, opacity: 0, scale: 0.95 },
+                { height: 'auto', opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.2)' }
+            );
+        }
+    }, [showForm]);
+
+    // Animate list update
+    useEffect(() => {
+        if (!loading && listRef.current) {
+            gsap.fromTo(listRef.current.children,
+                { y: 20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, stagger: 0.05, ease: 'power2.out', clearProps: 'all' }
+            );
+        }
+    }, [zones, loading]);
 
     const fetchZones = async () => {
         setLoading(true);
@@ -60,29 +84,15 @@ const ZoneManagement = () => {
         }
     };
 
-    // Handle logout
-    const handleLogout = async () => {
-        try {
-            await logout();
-            navigate('/login');
-        } catch (err) {
-            navigate('/login');
-        }
-    };
-
-    // Open form for new zone
     const handleAddNew = () => {
         setEditingZone(null);
-        setFormData({
-            zoneName: '',
-            description: '',
-            zoneType: 'building',
-        });
+        setFormData({ zoneName: '', description: '', zoneType: 'building' });
         setShowForm(true);
         setError('');
+        // Smooth scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Open form for editing
     const handleEdit = (zone) => {
         setEditingZone(zone);
         setFormData({
@@ -92,17 +102,22 @@ const ZoneManagement = () => {
         });
         setShowForm(true);
         setError('');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Cancel form
     const handleCancel = () => {
-        setShowForm(false);
+        if (formRef.current) {
+            gsap.to(formRef.current, {
+                height: 0, opacity: 0, scale: 0.95, duration: 0.3, onComplete: () => setShowForm(false)
+            });
+        } else {
+            setShowForm(false);
+        }
         setEditingZone(null);
         setFormData({ zoneName: '', description: '', zoneType: 'building' });
         setError('');
     };
 
-    // Save zone (create or update)
     const handleSave = async () => {
         if (!formData.zoneName.trim()) {
             setError('Zone name is required');
@@ -113,8 +128,7 @@ const ZoneManagement = () => {
         setError('');
 
         try {
-            // Create default geoBoundary (can be enhanced with actual map picker later)
-            const defaultCoords = [76.925, 10.903]; // Amrita Coimbatore center
+            const defaultCoords = [76.925, 10.903];
             const offset = 0.001;
 
             const zoneData = {
@@ -134,16 +148,13 @@ const ZoneManagement = () => {
             };
 
             if (editingZone) {
-                // Update existing zone
                 await api.put(`/v1/zones/${editingZone._id}`, zoneData);
                 setSuccess('Zone updated successfully');
             } else {
-                // Create new zone
                 await api.post('/v1/zones', zoneData);
                 setSuccess('Zone created successfully');
             }
 
-            // Refresh zones list
             await fetchZones();
             handleCancel();
             setTimeout(() => setSuccess(''), 3000);
@@ -155,241 +166,225 @@ const ZoneManagement = () => {
         }
     };
 
-    // Delete zone
     const handleDelete = async (zone) => {
-        if (!window.confirm(`Are you sure you want to delete "${zone.zoneName}"?`)) {
-            return;
+        if (!window.confirm(`Are you sure you want to delete "${zone.zoneName}"?`)) return;
+
+        // Animate removal first
+        const el = document.getElementById(`zone-${zone._id}`);
+        if (el) {
+            await gsap.to(el, { scale: 0.8, opacity: 0, duration: 0.3 });
         }
 
         try {
             await api.delete(`/v1/zones/${zone._id}`);
-            setSuccess('Zone deleted successfully');
-            await fetchZones();
+            setZones(prev => prev.filter(z => z._id !== zone._id));
+            setSuccess('Zone deleted');
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error('Failed to delete zone:', err);
             setError(err.response?.data?.error || 'Failed to delete zone');
+            // Revert visuals if failed (implied fetchZones or manual revert)
+            await fetchZones();
         }
     };
 
     return (
-        <>
+        <div className="flex bg-[#020617] min-h-screen">
             <AdminSidebar />
-            <div className="min-h-screen bg-slate-950">
-                {/* Main Content */}
-                <main className="flex-1 overflow-auto">
+            <div ref={containerRef} className="flex-1 p-8 overflow-y-auto h-screen custom-scrollbar">
+                <div className="max-w-6xl mx-auto pb-20">
                     {/* Header */}
-                    <header className="bg-slate-900 border-b border-slate-800 px-8 py-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white">Zone Management</h1>
-                                <p className="text-slate-400 text-sm mt-1">Manage campus zones and locations</p>
-                            </div>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                        <div>
+                            <h1 className="text-4xl font-black text-white tracking-tighter">Campus Zones</h1>
+                            <p className="text-slate-400 mt-2 text-lg">Define locations ensuring accurate item reporting</p>
+                        </div>
+                        {!showForm && (
                             <button
                                 onClick={handleAddNew}
-                                className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-xl transition-colors"
+                                className="group relative px-6 py-4 bg-primary-600 rounded-2xl font-bold text-white overflow-hidden shadow-lg shadow-primary-500/20 hover:scale-105 transition-transform"
                             >
-                                <Plus size={20} />
-                                Add Zone
+                                <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="relative flex items-center gap-2">
+                                    <Plus size={22} />
+                                    <span>Create New Zone</span>
+                                </div>
                             </button>
-                        </div>
-                    </header>
+                        )}
+                    </div>
 
-                    {/* Content */}
-                    <div className="p-8">
+                    <div className="space-y-6">
                         {/* Messages */}
                         {error && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 flex items-center gap-3">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 flex items-center gap-3 animate-pulse">
                                 <AlertCircle size={20} />
                                 {error}
-                                <button onClick={() => setError('')} className="ml-auto">
-                                    <X size={18} />
-                                </button>
                             </div>
                         )}
-
                         {success && (
-                            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/50 rounded-xl text-green-400 flex items-center gap-3">
+                            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-300 flex items-center gap-3">
                                 <CheckCircle size={20} />
                                 {success}
                             </div>
                         )}
 
-                        {/* Add/Edit Form */}
+                        {/* Form */}
                         {showForm && (
-                            <div className="mb-6 bg-slate-900 border border-slate-800 rounded-xl p-6">
-                                <h3 className="text-lg font-semibold text-white mb-4">
-                                    {editingZone ? 'Edit Zone' : 'Add New Zone'}
-                                </h3>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Zone Name */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Zone Name *</label>
-                                        <input
-                                            type="text"
-                                            value={formData.zoneName}
-                                            onChange={(e) => setFormData({ ...formData, zoneName: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-yellow-500"
-                                            placeholder="e.g., AB-1 (Academic Block 1)"
-                                        />
+                            <div ref={formRef} className="overflow-hidden">
+                                <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl relative">
+                                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                                        <Compass size={120} />
                                     </div>
 
-                                    {/* Zone Type */}
-                                    <div>
-                                        <label className="block text-slate-400 text-sm mb-2">Zone Type</label>
-                                        <div className="flex gap-3">
-                                            {ZONE_TYPES.map((type) => (
-                                                <button
-                                                    key={type.value}
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, zoneType: type.value })}
-                                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-colors ${formData.zoneType === type.value
-                                                        ? 'bg-yellow-500 text-black'
-                                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                                        }`}
-                                                >
-                                                    <type.icon size={18} />
-                                                    {type.label}
-                                                </button>
-                                            ))}
+                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                        {editingZone ? <Edit2 size={20} className="text-primary-400" /> : <Plus size={20} className="text-primary-400" />}
+                                        {editingZone ? 'Edit Zone Details' : 'Configure New Zone'}
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                        <div>
+                                            <label className="block text-slate-400 text-sm font-bold mb-2 ml-1">Zone Name</label>
+                                            <input
+                                                type="text"
+                                                value={formData.zoneName}
+                                                onChange={(e) => setFormData({ ...formData, zoneName: e.target.value })}
+                                                className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 transition-all placeholder-slate-600"
+                                                placeholder="e.g., Central Library"
+                                                autoFocus
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-slate-400 text-sm font-bold mb-2 ml-1">Zone Type</label>
+                                            <div className="flex gap-3">
+                                                {ZONE_TYPES.map((type) => (
+                                                    <button
+                                                        key={type.value}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, zoneType: type.value })}
+                                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all border ${formData.zoneType === type.value
+                                                            ? `bg-primary-500 text-white border-primary-400 shadow-lg shadow-primary-500/20`
+                                                            : 'bg-slate-950/50 text-slate-400 border-slate-800 hover:border-slate-600'
+                                                            }`}
+                                                    >
+                                                        <type.icon size={18} />
+                                                        {type.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="md:col-span-2">
+                                            <label className="block text-slate-400 text-sm font-bold mb-2 ml-1">Description</label>
+                                            <textarea
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                className="w-full px-4 py-3 bg-slate-950/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 resize-none h-24"
+                                                placeholder="Optional details about this area..."
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* Description */}
-                                    <div className="md:col-span-2">
-                                        <label className="block text-slate-400 text-sm mb-2">Description</label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-yellow-500 resize-none"
-                                            rows={2}
-                                            placeholder="Optional description of this zone"
-                                        />
+                                    <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-800/50">
+                                        <button
+                                            onClick={handleCancel}
+                                            className="px-6 py-3 bg-slate-800/50 text-slate-300 rounded-xl hover:bg-slate-800 transition-colors font-medium border border-transparent hover:border-slate-600"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                            {editingZone ? 'Update Zone' : 'Save Zone'}
+                                        </button>
                                     </div>
-                                </div>
-
-                                {/* Form Actions */}
-                                <div className="flex justify-end gap-3 mt-4">
-                                    <button
-                                        onClick={handleCancel}
-                                        className="px-4 py-2 bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-700 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={saving}
-                                        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black font-semibold rounded-xl transition-colors"
-                                    >
-                                        {saving ? (
-                                            <>
-                                                <Loader2 size={18} className="animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save size={18} />
-                                                {editingZone ? 'Update Zone' : 'Create Zone'}
-                                            </>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* Zones List */}
+                        {/* List */}
                         {loading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <Loader2 size={40} className="animate-spin text-yellow-500" />
+                            <div className="py-20 flex justify-center">
+                                <Loader2 size={40} className="text-primary-500 animate-spin" />
                             </div>
                         ) : zones.length === 0 ? (
-                            <div className="text-center py-20 bg-slate-900 border border-slate-800 rounded-xl">
-                                <MapPin size={60} className="mx-auto text-slate-600 mb-4" />
-                                <h3 className="text-xl font-semibold text-white mb-2">No Zones Created</h3>
-                                <p className="text-slate-400 mb-6">
-                                    Create campus zones so users can report lost/found items with locations
+                            <div className="text-center py-32 bg-slate-900/30 border-2 border-dashed border-slate-800 rounded-3xl">
+                                <MapPin size={64} className="mx-auto text-slate-700 mb-6" />
+                                <h3 className="text-2xl font-bold text-white mb-2">No Zones Configured</h3>
+                                <p className="text-slate-400 max-w-md mx-auto mb-8">
+                                    Start by adding your first campus zone to enable location-based item tracking.
                                 </p>
                                 <button
                                     onClick={handleAddNew}
-                                    className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-xl transition-colors"
+                                    className="px-8 py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-500 transition-colors"
                                 >
-                                    <Plus size={20} />
                                     Create First Zone
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div ref={listRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {zones.map((zone) => {
-                                    const TypeIcon = zone.zoneType === 'outdoor' ? Trees : Building;
+                                    const typeConfig = ZONE_TYPES.find(t => t.value === zone.zoneType) || ZONE_TYPES[0];
+                                    const TypeIcon = typeConfig.icon;
 
                                     return (
                                         <div
                                             key={zone._id}
-                                            className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition-colors"
+                                            id={`zone-${zone._id}`} // For delete animation
+                                            className="group relative bg-slate-900/40 backdrop-blur-sm border border-slate-800 rounded-3xl p-6 hover:bg-slate-800/60 hover:border-slate-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50"
                                         >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`p-3 rounded-xl ${zone.zoneType === 'outdoor'
-                                                    ? 'bg-green-500/20'
-                                                    : 'bg-blue-500/20'
-                                                    }`}>
-                                                    <TypeIcon size={24} className={
-                                                        zone.zoneType === 'outdoor'
-                                                            ? 'text-green-400'
-                                                            : 'text-blue-400'
-                                                    } />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="text-white font-semibold truncate">
-                                                        {zone.zoneName}
-                                                    </h4>
-                                                    <p className="text-slate-500 text-sm capitalize">
-                                                        {zone.zoneType || 'building'}
-                                                    </p>
-                                                    {zone.description && (
-                                                        <p className="text-slate-400 text-xs mt-1 line-clamp-2">
-                                                            {zone.description}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="flex gap-2 mt-4 pt-3 border-t border-slate-800">
+                                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                                 <button
                                                     onClick={() => handleEdit(zone)}
-                                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
+                                                    className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-primary-500 hover:text-white transition-colors"
+                                                    title="Edit"
                                                 >
                                                     <Edit2 size={16} />
-                                                    Edit
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(zone)}
-                                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                                                    className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                                                    title="Delete"
                                                 >
                                                     <Trash2 size={16} />
-                                                    Delete
                                                 </button>
+                                            </div>
+
+                                            <div className="mb-4">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${typeConfig.bg} border border-white/5`}>
+                                                    <TypeIcon size={28} className={typeConfig.color} />
+                                                </div>
+                                                <h3 className="text-xl font-bold text-white truncate pr-16">{zone.zoneName}</h3>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded bg-slate-800 text-slate-400`}>
+                                                        {typeConfig.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-slate-500 text-sm line-clamp-2 h-10 mb-4">
+                                                {zone.description || 'No description provided.'}
+                                            </p>
+
+                                            <div className="pt-4 border-t border-slate-800/50 flex items-center justify-between text-xs text-slate-500 font-mono">
+                                                <span>ID: {zone._id.slice(-6)}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <MapPin size={12} />
+                                                    <span>Coords Configured</span>
+                                                </div>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         )}
-
-                        {/* Info */}
-                        {zones.length > 0 && (
-                            <div className="mt-6 p-4 bg-slate-800/50 rounded-xl">
-                                <p className="text-slate-400 text-sm">
-                                    <span className="text-white font-medium">{zones.length}</span> zones configured.
-                                    Users can select these locations when reporting lost or found items.
-                                </p>
-                            </div>
-                        )}
                     </div>
-                </main>
+                </div>
             </div>
-        </>
+        </div>
     );
 };
 
