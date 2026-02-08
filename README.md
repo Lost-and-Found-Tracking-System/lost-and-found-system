@@ -1,215 +1,279 @@
-# Lost & Found System - Amrita Campus
-
-A full-stack application for managing lost and found items on campus.
-
----
+# Lost & Found System - DevDocs
 
 ## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- MongoDB running locally or MongoDB Atlas
-- npm or yarn
-
-### 1. Clone & Install
-
 ```bash
-git clone <repo-url>
-cd lost-and-found-system
+# 1. Clone & install
+git clone &lt;repo&gt; && cd lost-and-found-system
+cd backend && npm install && cd ../frontend && npm install
 
-# Install backend
-cd backend
-npm install
+# 2. Configure
+cp backend/.env.example backend/.env  # Edit with your values
+cp frontend/.env.example frontend/.env
 
-# Install frontend
-cd ../frontend
-npm install
+# 3. Run (two terminals)
+cd backend && npm run dev
+cd frontend && npm run dev  # New terminal
+
+App runs at http://localhost:5173
 ```
 
-### 2. Environment Setup
+This document provides a comprehensive guide for developers working on the Lost & Found System. It covers the architecture, technology stack, directory structure, setup instructions, and development workflows.
 
-**Backend** - Create `backend/.env`:
+## 1. Project Overview
+
+The Lost & Found System is a full-stack web application designed to manage lost and found items on campus. It allows students, faculty, and visitors to report lost or found items, browse existing reports, and submit claims. Administrators have a dashboard for managing zones, users, and claims.
+
+## 2. Architecture
+
+The application follows a **Layered Architecture** (specifically the Controller-Service-Repository pattern), ensuring separation of concerns and maintainability.
+
+### Backend Layers
+
+1.  **Presentation Layer (Routes & Middleware)**
+    -   **Routes**: Define API endpoints (`src/routes`).
+    -   **Middleware**: Handles cross-cutting concerns like Authentication (`authMiddleware`), Validation (`validateRequest`), and Error Handling (`errorHandler`).
+    -   **Controller Logic**: Implemented directly within route handlers (or separate controllers). responsible for parsing requests, invoking services, and sending responses.
+
+2.  **Business Logic Layer (Services)**
+    -   Encapsulates core business rules (`src/services`).
+    -   Examples: `authService` (handles login/register logic), `itemService` (manages lost/found items).
+    -   Decoupled from HTTP specifics (req/res objects).
+
+3.  **Data Access Layer (Models)**
+    -   Defines data structure using **Mongoose** schemas (`src/models`).
+    -   Interacts directly with the **MongoDB** database.
+    -   Includes schema validation and pre/post hooks.
+
+### Data Flow
+
+```mermaid
+graph TD
+    Client[Client (Frontend)] -->|HTTP Request| Middleware[Middleware (Auth/Validation)]
+    Middleware -->|Valid Request| Route[Route Handler]
+    Route -->|Call Method| Service[Service Layer]
+    Service -->|Query/Save| Model[Mongoose Model]
+    Model -->|Read/Write| DB[(MongoDB)]
+    
+    subgraph Backend
+    Middleware
+    Route
+    Service
+    Model
+    end
+```
+
+## 3. Technology Stack
+
+### Frontend
+-   **Framework**: [React](https://react.dev/) (v18)
+-   **Build Tool**: [Vite](https://vitejs.dev/)
+-   **Language**: JavaScript (JSX)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+-   **Animation**: [GSAP](https://gsap.com/), [Framer Motion](https://www.framer.com/motion/)
+-   **State Management**: React Context API
+-   **Routing**: [React Router](https://reactrouter.com/)
+-   **HTTP Client**: [Axios](https://axios-http.com/)
+-   **Icons**: [Lucide React](https://lucide.dev/)
+-   **Testing**: [Vitest](https://vitest.dev/), [React Testing Library](https://testing-library.com/)
+
+### Backend
+-   **Runtime**: [Node.js](https://nodejs.org/)
+-   **Framework**: [Express](https://expressjs.com/)
+-   **Language**: [TypeScript](https://www.typescriptlang.org/)
+-   **Database ODM**: [Mongoose](https://mongoosejs.com/)
+-   **Authentication**: JSON Web Tokens (JWT), Argon2 (hashing)
+-   **File Storage**: [Multer](https://github.com/expressjs/multer) (local/cloud)
+-   **Validation**: [Zod](https://zod.dev/)
+-   **Job Queue**: [Bull](https://github.com/OptimalBits/bull) (Redis based)
+-   **Email**: [SendGrid](https://sendgrid.com/) / Backend Mailer
+-   **PDF Generation**: [PDFKit](https://pdfkit.org/)
+-   **Testing**: [Vitest](https://vitest.dev/), [Supertest](https://github.com/ladjs/supertest)
+
+### E2E Testing
+-   **Framework**: [Playwright](https://playwright.dev/)
+
+## 4. Directory Structure
+
+The project is organized as a monorepo with distinct directories for backend, frontend, and end-to-end tests.
+
+```
+lost-and-found-system/
+├── backend/                # Backend API Server
+│   ├── src/
+│   │   ├── config/         # Configuration (DB, env, etc.)
+│   │   ├── middleware/     # Custom middleware (auth, error handling)
+│   │   ├── models/         # Mongoose schemas/models
+│   │   ├── routes/         # API route definitions
+│   │   ├── schemas/        # Zod validation schemas
+│   │   ├── scripts/        # Utility scripts (e.g., seeding)
+│   │   ├── services/       # Business logic layer
+│   │   ├── tests/          # Unit and integration tests
+│   │   ├── utils/          # Helper functions
+│   │   ├── app.ts          # Express app setup
+│   │   └── server.ts       # Server entry point
+│   ├── package.json
+│   └── tsconfig.json
+├── frontend/               # Frontend React Application
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── context/        # React Context providers (AuthContext)
+│   │   ├── effects/        # Animation/Visual effects
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── pages/          # Application pages/routes
+│   │   ├── services/       # API integration services
+│   │   ├── tests/          # Component tests
+│   │   ├── App.jsx         # Main application component
+│   │   └── main.jsx        # Entry point
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+├── e2e/                    # End-to-End Tests
+│   ├── fixtures/           # Test fixtures
+│   ├── page-objects/       # Page Object Model classes
+│   ├── tests/              # Test specifications (*.spec.ts)
+│   ├── package.json
+│   └── playwright.config.ts
+└── README.md               # Quick start guide
+```
+
+## 5. Setup & Installation
+
+### Prerequisites
+-   **Node.js**: v18 or higher
+-   **MongoDB**: Running locally or via Atlas connection URI
+-   **Redis**: Required for Bull queue (if background jobs are enabled)
+
+### Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd lost-and-found-system
+    ```
+
+2.  **Install Backend Dependencies:**
+    ```bash
+    cd backend
+    npm install
+    ```
+
+3.  **Install Frontend Dependencies:**
+    ```bash
+    cd ../frontend
+    npm install
+    ```
+
+4.  **Install E2E Dependencies (Optional):**
+    ```bash
+    cd ../e2e
+    npm install
+    npx playwright install  # Install browser binaries
+    ```
+
+### Environment Configuration
+
+#### Backend (.env)
+Create a `.env` file in the `backend` directory:
+
 ```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/lostfound
-JWT_SECRET=your-secret-key-here
-JWT_REFRESH_SECRET=your-refresh-secret-here
-
-Also see .env.example
+JWT_SECRET=your_jwt_secret_key
+JWT_REFRESH_SECRET=your_refresh_token_secret
+# Email Configuration (SendGrid or similar)
+SENDGRID_API_KEY=your_sendgrid_key
+FROM_EMAIL=no-reply@example.com
+# Client URL for CORS
+CLIENT_URL=http://localhost:5173
 ```
 
-**Frontend** - Create `frontend/.env`:
+#### Frontend (.env)
+Create a `.env` file in the `frontend` directory:
+
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-### 3. Run the App
+## 6. Running the Application
 
+### Development Mode
+
+You need to run both backend and frontend servers concurrently.
+
+**Backend:**
 ```bash
-# Terminal 1 - Backend
 cd backend
 npm run dev
-
-# Terminal 2 - Frontend
-cd frontend
-npm run dev
+# Server starts on http://localhost:5000
 ```
 
-### 4. Seed Admin User
+**Frontend:**
+```bash
+cd frontend
+npm run dev
+# App accessible at http://localhost:5173
+```
+
+### Seeding Data (Optional)
+
+To populate the database with initial data (e.g., admin user):
 
 ```bash
 cd backend
 npx tsx src/scripts/seed-users.ts
 ```
+**Default Admin Credentials:**
+-   Email: `admin@example.com`
+-   Password: `Admin@123`
 
-**Admin Login:**
-- Email: `admin@example.com`
-- Password: `Admin@123`
+## 7. Testing
 
----
-
-## Testing All Features
-
-### User Flows
-
-| Feature | URL | How to Test |
-|---------|-----|-------------|
-| Landing Page | `localhost:5173/` | Just open it |
-| Student Register | `localhost:5173/register` | Fill form, submit |
-| Login | `localhost:5173/login` | Use registered credentials |
-| Visitor OTP | `localhost:5173/register-visitor` | Enter phone, check backend terminal for OTP |
-| Dashboard | `localhost:5173/dashboard` | Login first, see stats |
-| Report Item | `localhost:5173/report` | Select lost/found, fill details, pick zone |
-| Browse Items | `localhost:5173/inventory` | See all reported items |
-| Item Details | `localhost:5173/item/:id` | Click any item |
-| Submit Claim | `localhost:5173/claim/:itemId` | Click "Claim" on found item |
-| My Claims | `localhost:5173/my-claims` | See your submitted claims |
-| Notifications | `localhost:5173/notifications` | Check alerts |
-| Profile | `localhost:5173/profile` | Update your info |
-
-### Admin Flows
-
-| Feature | URL | How to Test |
-|---------|-----|-------------|
-| Admin Dashboard | `localhost:5173/admin` | Login as admin |
-| Zone Management | `localhost:5173/admin/zones` | Create campus zones first! |
-| User Management | `localhost:5173/admin/roles` | Change user roles |
-| Claims Review | `localhost:5173/admin/claims` | Approve/reject claims |
-| AI Config | `localhost:5173/admin/ai-config` | Adjust matching settings |
-
-### Test Checklist
-
-**First Time Setup:**
-1. [ ] Login as admin
-2. [ ] Go to Zone Management → Create at least 5 zones
-3. [ ] Logout
-
-**Student Flow:**
-1. [ ] Register new student account
-2. [ ] Login
-3. [ ] Report a LOST item (select zone on map)
-4. [ ] Check "My Items" on dashboard shows it
-5. [ ] Browse Items → see your lost item listed
-
-**Faculty Flow:**
-1. [ ] Register → Admin upgrades to Faculty
-2. [ ] Login as Faculty
-3. [ ] Report a FOUND item (same category as lost item above)
-4. [ ] Browse Items → both items visible
-
-**Claim Flow:**
-1. [ ] Login as student
-2. [ ] Go to Browse Items → Find the FOUND item
-3. [ ] Click item → Submit Claim with ownership proof
-4. [ ] Go to My Claims → See pending claim
-5. [ ] Login as Admin → Claims → Approve the claim
-6. [ ] Check item status changes to "resolved"
-
-**Visitor Flow:**
-1. [ ] Go to `/register-visitor`
-2. [ ] Enter phone number
-3. [ ] Check backend terminal for OTP code
-4. [ ] Enter OTP → Auto-login to dashboard
-5. [ ] Can report items, browse, claim
-
----
-
-## Project Structure
-
-```
-lost-and-found-system/
-├── backend/
-│   ├── src/
-│   │   ├── routes/v1/      # API endpoints
-│   │   ├── services/       # Business logic
-│   │   ├── models/         # MongoDB schemas
-│   │   ├── middleware/     # Auth, validation
-│   │   └── utils/          # Helpers
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── pages/          # React pages
-│   │   ├── components/     # Reusable components
-│   │   ├── context/        # Auth context
-│   │   └── services/       # API calls
-│   └── package.json
-└── README.md
+### Backend Tests
+Run unit and integration tests using Vitest.
+```bash
+cd backend
+npm test            # Run all tests
+npm run test:watch  # Watch mode
+npm run test:coverage # Generate coverage report
 ```
 
----
+### Frontend Tests
+Run component tests using Vitest and React Testing Library.
+```bash
+cd frontend
+npm test
+```
 
-## API Endpoints
+### End-to-End (E2E) Tests
+Run browser automation tests using Playwright.
+```bash
+cd e2e
+npx playwright test        # Run all tests in headless mode
+npx playwright test --ui   # Run with UI mode
+npx playwright show-report # View HTML report
+```
 
-### Auth
-- `POST /api/v1/auth/register` - Student registration
-- `POST /api/v1/auth/login` - Login
-- `POST /api/v1/auth/visitor/request-otp` - Request OTP
-- `POST /api/v1/auth/visitor/verify` - Verify OTP & login
+Ensure both backend and frontend servers are running before executing E2E tests, unless Playwright is configured to start them automatically.
 
-### Items
-- `GET /api/v1/items` - Browse all items
-- `GET /api/v1/items/user/my-items` - Get user's items
-- `POST /api/v1/items` - Report item
-- `GET /api/v1/items/:id` - Item details
+## 8. Development Guidelines
 
-### Claims
-- `POST /api/v1/claims` - Submit claim
-- `GET /api/v1/claims/user/my-claims` - User's claims
+### Git Workflow
+-   Create feature branches from `main` or `develop`.
+-   Use meaningful commit messages.
+-   Ensure all tests pass before merging.
 
-### Zones
-- `GET /api/v1/zones` - List zones
-- `POST /api/v1/zones` - Create zone (admin)
-- `PUT /api/v1/zones/:id` - Update zone (admin)
-- `DELETE /api/v1/zones/:id` - Delete zone (admin)
+### Code Style
+-   **Backend**: Adhere to ESLint and Prettier configurations. TypeScript is strict.
+-   **Frontend**: Follow React best practices (functional components, hooks). Tailwind classes should be organized.
 
-### Admin
-- `GET /api/v1/admin/dashboard` - Stats
-- `GET /api/v1/admin/claims` - All claims
-- `PUT /api/v1/admin/claims/:id/decision` - Approve/reject
+## 9. API Documentation
 
----
+Detailed API documentation can be found in the backend routes or generated via tools like Swagger (if integrated). Key endpoints include:
 
-## Troubleshooting
+-   `POST /api/v1/auth/register`
+-   `POST /api/v1/auth/login`
+-   `GET /api/v1/items`
+-   `POST /api/v1/items`
+-   `GET /api/v1/claims`
 
-**"Please select a location" but no zones showing?**
-→ Admin needs to create zones first at `/admin/zones`
-
-**OTP not working?**
-→ Check backend terminal - OTP is logged there
-
-**"Reported By: Anonymous" even though not anonymous?**
-→ Make sure you pulled latest backend changes
-
-**My Items showing empty?**
-→ You need to report an item first, it shows YOUR items only
-
----
-
-## Tech Stack
-
-- **Frontend:** React, Vite, TailwindCSS, Lucide Icons
-- **Backend:** Node.js, Express, TypeScript
-- **Database:** MongoDB with Mongoose
-- **Auth:** JWT with refresh tokens
-
----
+See `backend/src/routes` for full route definitions.
