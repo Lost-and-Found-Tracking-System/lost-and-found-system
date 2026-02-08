@@ -1,460 +1,593 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * PREMIUM REPORT ITEM PAGE
+ * Multi-step form with advanced effects
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import CampusMap from '../components/CampusMap';
+import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
+import { gsap } from 'gsap';
 import {
     Package,
+    Camera,
     MapPin,
     Calendar,
+    Tag,
     FileText,
     Upload,
-    ChevronRight,
-    ChevronLeft,
-    Check,
-    Loader2,
-    Save,
-    AlertCircle,
+    X,
     ArrowLeft,
+    ArrowRight,
+    CheckCircle,
+    Loader2,
+    Sparkles,
+    AlertCircle,
+    Image as ImageIcon
 } from 'lucide-react';
-
-const CATEGORIES = [
-    'Electronics', 'Documents', 'Accessories', 'Clothing',
-    'Books', 'Keys', 'Bags', 'Sports Equipment', 'Other'
-];
+import {
+    MorphingBlob,
+    GlitchText,
+    NeonText,
+    TiltCard,
+    GradientBorderCard,
+    ElasticButton,
+    PulseRings,
+    ParticleExplosion,
+    WaveText
+} from '../effects';
 
 const ReportItem = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [savingDraft, setSavingDraft] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [trackingId, setTrackingId] = useState('');
-    const [zones, setZones] = useState([]);
+    const [success, setSuccess] = useState(false);
 
     const [formData, setFormData] = useState({
-        submissionType: 'lost',
-        itemAttributes: {
-            category: '',
-            color: '',
-            material: '',
-            size: '',
-            description: '',
-        },
-        location: {
-            type: 'Point',
-            coordinates: [0, 0],
-            zoneId: '',
-        },
-        timeMetadata: {
-            lostOrFoundAt: new Date().toISOString().split('T')[0],
-            reportedAt: new Date().toISOString(),
-        },
-        isAnonymous: false,
-        images: [],
+        type: '',
+        title: '',
+        description: '',
+        category: '',
+        date: new Date().toISOString().split('T')[0],
+        location: { zone: '', building: '', details: '' },
+        images: []
     });
 
-    // Fetch zones and draft on mount
+    const [imagePreviews, setImagePreviews] = useState([]);
+    const [zones, setZones] = useState([]);
+
+    const containerRef = useRef(null);
+    const fileInputRef = useRef(null);
+
+    // Fetch zones
     useEffect(() => {
+        const fetchZones = async () => {
+            try {
+                const res = await api.get('/v1/zones');
+                setZones(res.data.zones || res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch zones:', err);
+            }
+        };
         fetchZones();
-        fetchDraft();
     }, []);
 
-    const fetchZones = async () => {
-        try {
-            const res = await api.get('/v1/zones');
-            setZones(res.data);
-        } catch (error) {
-            console.error('Failed to fetch zones:', error);
-        }
-    };
+    // Step transition animation
+    useEffect(() => {
+        const ctx = gsap.context(() => {
+            gsap.fromTo('.step-content',
+                { x: 60, opacity: 0, filter: 'blur(10px)' },
+                { x: 0, opacity: 1, filter: 'blur(0px)', duration: 0.5, ease: 'power3.out' }
+            );
 
-    const fetchDraft = async () => {
-        try {
-            const res = await api.get('/v1/items/drafts/me');
-            if (res.data && res.data.partialData) {
-                setFormData(prev => ({ ...prev, ...res.data.partialData }));
+            gsap.fromTo('.form-field',
+                { y: 30, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, stagger: 0.06, delay: 0.1, ease: 'power2.out' }
+            );
+        }, containerRef);
+
+        return () => ctx.revert();
+    }, [step]);
+
+    // Handle image upload
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        const maxFiles = 5 - formData.images.length;
+
+        if (files.length > maxFiles) {
+            setError(`You can only upload ${maxFiles} more image(s)`);
+            return;
+        }
+
+        files.slice(0, maxFiles).forEach(file => {
+            if (!file.type.startsWith('image/')) {
+                setError('Please upload only image files');
+                return;
             }
-        } catch (error) {
-            // No draft exists, that's fine
-        }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreviews(prev => [...prev, e.target.result]);
+            };
+            reader.readAsDataURL(file);
+
+            setFormData(prev => ({
+                ...prev,
+                images: [...prev.images, file]
+            }));
+        });
+
+        setError('');
     };
 
-    const saveDraft = async () => {
-        setSavingDraft(true);
-        try {
-            await api.post('/v1/items/drafts', { partialData: formData });
-            setSuccess('Draft saved!');
-            setTimeout(() => setSuccess(''), 3000);
-        } catch (error) {
-            console.error('Failed to save draft:', error);
-        } finally {
-            setSavingDraft(false);
-        }
-    };
-
-    const handleZoneSelect = (zone) => {
+    const removeImage = (index) => {
         setFormData(prev => ({
             ...prev,
-            location: {
-                ...prev.location,
-                zoneId: zone.id,
-                coordinates: zone.coordinates || [0, 0],
-            }
+            images: prev.images.filter((_, i) => i !== index)
         }));
+        setImagePreviews(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Validation
+    const validateStep = () => {
+        switch (step) {
+            case 1:
+                if (!formData.type) {
+                    setError('Please select item type');
+                    return false;
+                }
+                break;
+            case 2:
+                if (!formData.title.trim()) {
+                    setError('Please enter a title');
+                    return false;
+                }
+                if (!formData.category) {
+                    setError('Please select a category');
+                    return false;
+                }
+                break;
+            case 3:
+                if (!formData.location.zone) {
+                    setError('Please select a zone');
+                    return false;
+                }
+                if (!formData.date) {
+                    setError('Please select a date');
+                    return false;
+                }
+                break;
+        }
+        setError('');
+        return true;
+    };
+
+    const handleNext = () => {
+        if (validateStep()) {
+            setStep(prev => prev + 1);
+        }
+    };
+
+    const handleBack = () => {
+        setStep(prev => prev - 1);
+        setError('');
+    };
+
+    // Submit form
     const handleSubmit = async () => {
+        if (!validateStep()) return;
+
         setLoading(true);
         setError('');
 
         try {
-            // Validate required fields
-            if (!formData.itemAttributes.category) {
-                throw new Error('Please select a category');
-            }
-            if (!formData.itemAttributes.description || formData.itemAttributes.description.length < 10) {
-                throw new Error('Description must be at least 10 characters');
-            }
-            if (!formData.location.zoneId) {
-                throw new Error('Please select a location');
-            }
+            const submitData = new FormData();
+            submitData.append('type', formData.type);
+            submitData.append('title', formData.title);
+            submitData.append('description', formData.description);
+            submitData.append('category', formData.category);
+            submitData.append('date', formData.date);
+            submitData.append('location', JSON.stringify(formData.location));
 
-            const res = await api.post('/v1/items', {
-                ...formData,
-                timeMetadata: {
-                    lostOrFoundAt: new Date(formData.timeMetadata.lostOrFoundAt).toISOString(),
-                    reportedAt: new Date().toISOString(),
+            formData.images.forEach(image => {
+                submitData.append('images', image);
+            });
+
+            await api.post('/v1/items', submitData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            setSuccess(true);
+
+            // Success animation
+            gsap.to('.form-container', {
+                scale: 0.95,
+                opacity: 0,
+                y: -30,
+                duration: 0.5,
+                ease: 'power2.in',
+                onComplete: () => {
+                    setTimeout(() => navigate('/dashboard'), 1500);
                 }
             });
 
-            setTrackingId(res.data.trackingId);
-
-            // Delete draft after successful submission
-            try {
-                await api.delete('/v1/items/drafts/me');
-            } catch (e) {
-                // Ignore draft deletion errors
-            }
-
-            setStep(4); // Success step
-        } catch (error) {
-            console.error('Submit error:', error);
-            setError(error.response?.data?.error || error.message || 'Failed to submit item');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to report item');
+            gsap.to('.form-container', {
+                x: [-15, 15, -10, 10, -5, 5, 0],
+                duration: 0.6,
+                ease: 'power2.inOut'
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    const renderStep1 = () => (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white">What happened?</h3>
+    const categories = [
+        'Electronics', 'Documents', 'Accessories', 'Clothing',
+        'Keys', 'Bags', 'Books', 'Sports Equipment', 'Other'
+    ];
 
-            {/* Lost or Found */}
-            <div className="flex gap-4">
-                {['lost', 'found'].map((type) => (
-                    <button
-                        key={type}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, submissionType: type }))}
-                        className={`flex-1 py-4 px-6 rounded-xl font-semibold transition-all ${formData.submissionType === type
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                            }`}
-                    >
-                        I {type} something
-                    </button>
-                ))}
-            </div>
+    const steps = [
+        { num: 1, label: 'Type' },
+        { num: 2, label: 'Details' },
+        { num: 3, label: 'Location' },
+        { num: 4, label: 'Images' }
+    ];
 
-            {/* Category */}
-            <div>
-                <label className="block text-slate-400 text-sm mb-2">Category *</label>
-                <div className="grid grid-cols-3 gap-2">
-                    {CATEGORIES.map((cat) => (
-                        <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setFormData(prev => ({
-                                ...prev,
-                                itemAttributes: { ...prev.itemAttributes, category: cat }
-                            }))}
-                            className={`py-2 px-3 rounded-lg text-sm transition-all ${formData.itemAttributes.category === cat
-                                ? 'bg-primary-500 text-white'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                }`}
-                        >
-                            {cat}
-                        </button>
-                    ))}
+    if (success) {
+        return (
+            <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+                <div className="text-center">
+                    <div className="relative inline-block mb-8">
+                        <PulseRings size={120} color="#10b981" />
+                        <CheckCircle className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-emerald-400" size={48} />
+                    </div>
+                    <h1 className="text-4xl font-black text-white mb-4">
+                        <NeonText color="#10b981">Success!</NeonText>
+                    </h1>
+                    <p className="text-slate-400 text-lg">Your item has been reported successfully.</p>
                 </div>
             </div>
-
-            {/* Description */}
-            <div>
-                <label className="block text-slate-400 text-sm mb-2">Description * (min 10 characters)</label>
-                <textarea
-                    value={formData.itemAttributes.description}
-                    onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        itemAttributes: { ...prev.itemAttributes, description: e.target.value }
-                    }))}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 resize-none"
-                    rows={4}
-                    placeholder="Describe the item in detail..."
-                />
-            </div>
-
-            {/* Additional Attributes */}
-            <div className="grid grid-cols-3 gap-4">
-                <div>
-                    <label className="block text-slate-400 text-sm mb-2">Color</label>
-                    <input
-                        type="text"
-                        value={formData.itemAttributes.color}
-                        onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            itemAttributes: { ...prev.itemAttributes, color: e.target.value }
-                        }))}
-                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                        placeholder="e.g., Black"
-                    />
-                </div>
-                <div>
-                    <label className="block text-slate-400 text-sm mb-2">Material</label>
-                    <input
-                        type="text"
-                        value={formData.itemAttributes.material}
-                        onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            itemAttributes: { ...prev.itemAttributes, material: e.target.value }
-                        }))}
-                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                        placeholder="e.g., Leather"
-                    />
-                </div>
-                <div>
-                    <label className="block text-slate-400 text-sm mb-2">Size</label>
-                    <input
-                        type="text"
-                        value={formData.itemAttributes.size}
-                        onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            itemAttributes: { ...prev.itemAttributes, size: e.target.value }
-                        }))}
-                        className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                        placeholder="e.g., Medium"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderStep2 = () => (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white">Where and When?</h3>
-
-            {/* Location */}
-            <div>
-                <label className="block text-slate-400 text-sm mb-2">Location *</label>
-                <CampusMap
-                    zones={zones}
-                    selectedZone={formData.location.zoneId}
-                    onZoneSelect={handleZoneSelect}
-                />
-            </div>
-
-            {/* Date */}
-            <div>
-                <label className="block text-slate-400 text-sm mb-2">Date {formData.submissionType} *</label>
-                <input
-                    type="date"
-                    value={formData.timeMetadata.lostOrFoundAt}
-                    onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        timeMetadata: { ...prev.timeMetadata, lostOrFoundAt: e.target.value }
-                    }))}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500"
-                />
-            </div>
-
-            {/* Anonymous */}
-            <div className="flex items-center gap-3">
-                <input
-                    type="checkbox"
-                    id="anonymous"
-                    checked={formData.isAnonymous}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isAnonymous: e.target.checked }))}
-                    className="w-5 h-5 rounded bg-slate-800 border-slate-700 text-primary-500 focus:ring-primary-500"
-                />
-                <label htmlFor="anonymous" className="text-slate-400">
-                    Submit anonymously (your identity will be hidden from other users)
-                </label>
-            </div>
-        </div>
-    );
-
-    const renderStep3 = () => (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white">Review & Submit</h3>
-
-            <div className="bg-slate-800/50 rounded-xl p-6 space-y-4">
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Type</span>
-                    <span className="text-white capitalize">{formData.submissionType}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Category</span>
-                    <span className="text-white">{formData.itemAttributes.category}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Description</span>
-                    <span className="text-white text-right max-w-xs truncate">{formData.itemAttributes.description}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Location</span>
-                    <span className="text-white">
-                        {zones.find(z => z._id === formData.location.zoneId)?.zoneName || 'Selected'}
-                    </span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Date</span>
-                    <span className="text-white">{formData.timeMetadata.lostOrFoundAt}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-400">Anonymous</span>
-                    <span className="text-white">{formData.isAnonymous ? 'Yes' : 'No'}</span>
-                </div>
-            </div>
-
-            {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 flex items-center gap-2">
-                    <AlertCircle size={20} />
-                    {error}
-                </div>
-            )}
-        </div>
-    );
-
-    const renderSuccess = () => (
-        <div className="text-center py-12">
-            <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Check className="w-10 h-10 text-green-500" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Item Reported Successfully!</h3>
-            <p className="text-slate-400 mb-6">Your tracking ID is:</p>
-            <div className="bg-slate-800 rounded-xl p-4 inline-block mb-8">
-                <code className="text-2xl text-primary-400 font-mono">{trackingId}</code>
-            </div>
-            <div className="flex gap-4 justify-center">
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
-                >
-                    Go to Dashboard
-                </button>
-                <button
-                    onClick={() => navigate('/inventory')}
-                    className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors"
-                >
-                    Browse Items
-                </button>
-            </div>
-        </div>
-    );
+        );
+    }
 
     return (
-        <>
+        <div ref={containerRef} className="min-h-screen bg-[#030712] text-white overflow-hidden relative">
+            {/* Background Effects */}
+            <div className="fixed inset-0 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4">
+                    <MorphingBlob color1="#0ea5e9" color2="#8b5cf6" size={500} />
+                </div>
+                <div className="absolute bottom-1/4 right-1/4">
+                    <MorphingBlob color1="#8b5cf6" color2="#ec4899" size={400} />
+                </div>
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.015)_1px,transparent_1px)] bg-[size:60px_60px]" />
+            </div>
+
             <Sidebar />
-            <div className="min-h-screen bg-[#020617] p-8">
-                <div className="max-w-2xl mx-auto">
+
+            <main className="pl-4 md:pl-8 pr-4 md:pr-8 py-8 relative z-10">
+                <div className="max-w-3xl mx-auto">
                     {/* Header */}
-                    <div className="mb-8">
-                        <button
-                            onClick={() => navigate('/dashboard')}
-                            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4"
-                        >
-                            <ArrowLeft size={20} />
-                            Back to Dashboard
-                        </button>
-                        <h1 className="text-3xl font-bold text-white">Report an Item</h1>
-                        <p className="text-slate-400 mt-1">Help us help you find your belongings</p>
+                    <div className="text-center mb-10">
+                        <div className="inline-flex items-center justify-center mb-4">
+                            <div className="p-4 bg-gradient-to-tr from-primary-600 to-purple-600 rounded-2xl shadow-2xl shadow-primary-500/30">
+                                <Package size={36} className="text-white" />
+                            </div>
+                        </div>
+                        <h1 className="text-4xl md:text-5xl font-black mb-2">
+                            <GlitchText text="Report an Item" />
+                        </h1>
+                        <p className="text-slate-400 text-lg">Help reunite items with their owners</p>
                     </div>
 
                     {/* Progress Steps */}
-                    {step < 4 && (
-                        <div className="flex items-center gap-4 mb-8">
-                            {[1, 2, 3].map((s) => (
-                                <React.Fragment key={s}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${step >= s ? 'bg-primary-500 text-white' : 'bg-slate-800 text-slate-500'
-                                        }`}>
-                                        {s}
-                                    </div>
-                                    {s < 3 && (
-                                        <div className={`flex-1 h-1 rounded ${step > s ? 'bg-primary-500' : 'bg-slate-800'}`} />
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    )}
+                    <div className="flex items-center justify-center gap-4 mb-12">
+                        {steps.map((s, i) => (
+                            <div key={s.num} className="flex items-center gap-3">
+                                <div
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-500 ${step > s.num
+                                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                                            : step === s.num
+                                                ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/30'
+                                                : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                        }`}
+                                >
+                                    {step > s.num ? <CheckCircle size={20} /> : s.num}
+                                </div>
+                                <span className={`hidden sm:block text-sm font-medium ${step >= s.num ? 'text-white' : 'text-slate-500'}`}>
+                                    {s.label}
+                                </span>
+                                {i < steps.length - 1 && (
+                                    <div className={`hidden sm:block w-12 h-0.5 transition-all duration-500 ${step > s.num ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                                )}
+                            </div>
+                        ))}
+                    </div>
 
                     {/* Form Card */}
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8">
-                        {step === 1 && renderStep1()}
-                        {step === 2 && renderStep2()}
-                        {step === 3 && renderStep3()}
-                        {step === 4 && renderSuccess()}
+                    <TiltCard intensity={0.1}>
+                        <div
+                            className="form-container rounded-3xl p-8 md:p-10"
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.6)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                            }}
+                        >
+                            {/* Error */}
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex items-center gap-3">
+                                    <AlertCircle size={20} />
+                                    <span>{error}</span>
+                                </div>
+                            )}
 
-                        {/* Navigation */}
-                        {step < 4 && (
-                            <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-800">
-                                <div className="flex gap-2">
+                            <div className="step-content">
+                                {/* Step 1: Type Selection */}
+                                {step === 1 && (
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-white mb-6">
+                                            <WaveText text="What type of item?" />
+                                        </h2>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            {[
+                                                { id: 'lost', label: 'Lost Item', desc: 'I lost something', icon: '🔍', color: 'from-red-500 to-orange-500' },
+                                                { id: 'found', label: 'Found Item', desc: 'I found something', icon: '🎉', color: 'from-emerald-500 to-teal-500' }
+                                            ].map(type => (
+                                                <button
+                                                    key={type.id}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, type: type.id })}
+                                                    className={`form-field p-8 rounded-2xl border-2 text-left transition-all group ${formData.type === type.id
+                                                            ? `border-transparent bg-gradient-to-br ${type.color}`
+                                                            : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
+                                                        }`}
+                                                >
+                                                    <span className="text-5xl mb-4 block">{type.icon}</span>
+                                                    <h3 className={`text-xl font-bold mb-2 ${formData.type === type.id ? 'text-white' : 'text-white group-hover:text-primary-400'}`}>
+                                                        {type.label}
+                                                    </h3>
+                                                    <p className={`text-sm ${formData.type === type.id ? 'text-white/80' : 'text-slate-400'}`}>
+                                                        {type.desc}
+                                                    </p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 2: Details */}
+                                {step === 2 && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-bold text-white mb-6">
+                                            <WaveText text="Item Details" />
+                                        </h2>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2">Title *</label>
+                                            <input
+                                                type="text"
+                                                value={formData.title}
+                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                                placeholder="e.g., Blue iPhone 15 Pro"
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2">Category *</label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {categories.map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, category: cat })}
+                                                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${formData.category === cat
+                                                                ? 'bg-primary-600 text-white'
+                                                                : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-600'
+                                                            }`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2">Description</label>
+                                            <textarea
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                placeholder="Describe the item in detail (color, brand, distinguishing features...)"
+                                                rows={4}
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all resize-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 3: Location & Date */}
+                                {step === 3 && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-bold text-white mb-6">
+                                            <WaveText text="Where & When?" />
+                                        </h2>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2 flex items-center gap-2">
+                                                <MapPin size={16} className="text-cyan-400" />
+                                                Zone *
+                                            </label>
+                                            <select
+                                                value={formData.location.zone}
+                                                onChange={(e) => setFormData({ ...formData, location: { ...formData.location, zone: e.target.value } })}
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                            >
+                                                <option value="">Select a zone</option>
+                                                {zones.map(zone => (
+                                                    <option key={zone._id} value={zone.name}>{zone.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2">Building / Room (Optional)</label>
+                                            <input
+                                                type="text"
+                                                value={formData.location.building}
+                                                onChange={(e) => setFormData({ ...formData, location: { ...formData.location, building: e.target.value } })}
+                                                placeholder="e.g., AB1, Room 302"
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2 flex items-center gap-2">
+                                                <Calendar size={16} className="text-violet-400" />
+                                                Date {formData.type === 'lost' ? 'Lost' : 'Found'} *
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={formData.date}
+                                                max={new Date().toISOString().split('T')[0]}
+                                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="block text-slate-400 text-sm mb-2">Additional Location Details</label>
+                                            <textarea
+                                                value={formData.location.details}
+                                                onChange={(e) => setFormData({ ...formData, location: { ...formData.location, details: e.target.value } })}
+                                                placeholder="Any other details that might help locate the item..."
+                                                rows={3}
+                                                className="w-full px-5 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all resize-none"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 4: Images */}
+                                {step === 4 && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-bold text-white mb-6">
+                                            <WaveText text="Add Photos" />
+                                        </h2>
+
+                                        <p className="text-slate-400 mb-6">
+                                            Upload up to 5 images to help identify the item. Clear photos increase the chance of recovery!
+                                        </p>
+
+                                        {/* Upload Area */}
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="form-field border-2 border-dashed border-slate-600 rounded-2xl p-10 text-center cursor-pointer hover:border-primary-500 hover:bg-primary-500/5 transition-all group"
+                                        >
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                            />
+                                            <div className="inline-flex p-5 bg-slate-800/50 rounded-2xl mb-4 group-hover:bg-primary-500/20 transition-colors">
+                                                <Upload size={32} className="text-slate-400 group-hover:text-primary-400 transition-colors" />
+                                            </div>
+                                            <p className="text-white font-semibold mb-2">Click to upload or drag and drop</p>
+                                            <p className="text-slate-500 text-sm">PNG, JPG up to 5MB each • Max 5 images</p>
+                                        </div>
+
+                                        {/* Image Previews */}
+                                        {imagePreviews.length > 0 && (
+                                            <div className="form-field grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                                                {imagePreviews.map((preview, i) => (
+                                                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden group">
+                                                        <img src={preview} alt="" className="w-full h-full object-cover" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeImage(i)}
+                                                            className="absolute top-2 right-2 p-2 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* AI Tip */}
+                                        <div className="form-field p-5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/20">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <Sparkles size={20} className="text-purple-400" />
+                                                <span className="font-bold text-white">AI Tip</span>
+                                            </div>
+                                            <p className="text-slate-400 text-sm">
+                                                Our AI analyzes images to match lost and found items. Clear, well-lit photos of unique features significantly improve matching accuracy.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Navigation */}
+                                <div className="flex gap-4 mt-10">
                                     {step > 1 && (
                                         <button
-                                            onClick={() => setStep(step - 1)}
-                                            className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                                            type="button"
+                                            onClick={handleBack}
+                                            className="flex-1 py-4 border border-slate-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
                                         >
-                                            <ChevronLeft size={20} />
+                                            <ArrowLeft size={18} />
                                             Back
                                         </button>
                                     )}
-                                    <button
-                                        onClick={saveDraft}
-                                        disabled={savingDraft}
-                                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
-                                    >
-                                        {savingDraft ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                                        Save Draft
-                                    </button>
+
+                                    {step < 4 ? (
+                                        <ParticleExplosion className="flex-1">
+                                            <ElasticButton
+                                                onClick={handleNext}
+                                                className="w-full py-4 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold flex items-center justify-center gap-2 group shadow-lg shadow-primary-500/25"
+                                            >
+                                                Continue
+                                                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                            </ElasticButton>
+                                        </ParticleExplosion>
+                                    ) : (
+                                        <ParticleExplosion className="flex-1">
+                                            <ElasticButton
+                                                onClick={handleSubmit}
+                                                disabled={loading}
+                                                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-emerald-500/25"
+                                            >
+                                                {loading ? (
+                                                    <>
+                                                        <Loader2 size={18} className="animate-spin" />
+                                                        Submitting...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        Submit Report
+                                                        <CheckCircle size={18} />
+                                                    </>
+                                                )}
+                                            </ElasticButton>
+                                        </ParticleExplosion>
+                                    )}
                                 </div>
-
-                                {success && <span className="text-green-400 text-sm">{success}</span>}
-
-                                {step < 3 ? (
-                                    <button
-                                        onClick={() => setStep(step + 1)}
-                                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-colors flex items-center gap-2"
-                                    >
-                                        Next
-                                        <ChevronRight size={20} />
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={handleSubmit}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-primary-500 text-white rounded-xl hover:bg-primary-600 disabled:bg-primary-500/50 transition-colors flex items-center gap-2"
-                                    >
-                                        {loading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-                                        {loading ? 'Submitting...' : 'Submit Report'}
-                                    </button>
-                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    </TiltCard>
                 </div>
-            </div>
-        </>
+            </main>
+        </div>
     );
 };
 
