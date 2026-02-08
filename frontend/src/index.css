@@ -9,7 +9,8 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a;
+  background-color: #020617;
+  /* Updated to match new dark theme */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -21,10 +22,49 @@ body {
   margin: 0;
   display: flex;
   place-items: center;
+  /* This might center content vertically? usually block is better for apps */
+  display: block;
+  /* Apps usually want block flow */
   min-width: 320px;
   min-height: 100vh;
 }
 
 #root {
   width: 100%;
+  min-height: 100vh;
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-slate-900/40 backdrop-blur-md border border-slate-800/50;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+  }
 }
