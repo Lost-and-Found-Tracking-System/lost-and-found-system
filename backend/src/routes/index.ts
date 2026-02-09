@@ -8,6 +8,7 @@ import { notificationsRouter } from './v1/notifications.js'
 import { adminRouter } from './v1/admin.js'
 import { zonesRouter } from './v1/zones.js'
 import { uploadsRouter } from './v1/uploads.js'
+import { dashboardRouter } from './v1/dashboard.js'
 
 export const router = Router()
 
@@ -50,4 +51,7 @@ router.use('/v1/uploads', uploadsRouter)
 
 // Admin routes (protected)
 router.use('/v1/admin', adminRouter)
+
+// Dashboard routes
+router.use('/v1/dashboard', dashboardRouter)
 
