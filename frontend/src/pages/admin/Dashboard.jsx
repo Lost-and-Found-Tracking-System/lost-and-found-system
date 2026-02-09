@@ -54,9 +54,18 @@ const AdminDashboard = () => {
         const fetchData = async () => {
             try {
                 const [statsRes, activityRes] = await Promise.all([
-                    api.get('/v1/admin/stats').catch(() => ({ data: {} })),
-                    api.get('/v1/admin/activity?limit=8').catch(() => ({ data: { activities: [] } }))
+                    api.get('/v1/admin/stats').catch((err) => {
+                        console.error('Stats fetch failed:', err.response?.status, err.response?.data);
+                        return { data: {} };
+                    }),
+                    api.get('/v1/admin/activity?limit=15').catch((err) => {
+                        console.error('Activity fetch failed:', err.response?.status, err.response?.data);
+                        return { data: { activities: [] } };
+                    })
                 ]);
+
+                console.log('Stats Response:', statsRes.data);
+                console.log('Activity Response:', activityRes.data);
 
                 setStats(statsRes.data || {});
                 setRecentActivity(activityRes.data.activities || []);
@@ -68,6 +77,18 @@ const AdminDashboard = () => {
         };
 
         fetchData();
+        
+        // Auto-refresh activity every 30 seconds
+        const interval = setInterval(async () => {
+            try {
+                const activityRes = await api.get('/v1/admin/activity?limit=15');
+                setRecentActivity(activityRes.data.activities || []);
+            } catch (error) {
+                console.error('Activity refresh error:', error);
+            }
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
     // GSAP Animations
@@ -199,16 +220,28 @@ const AdminDashboard = () => {
             case 'claim': return FileText;
             case 'item': return Package;
             case 'user': return Users;
+            case 'audit': return Shield;
             default: return Activity;
         }
     };
 
-    const getActivityColor = (type) => {
-        switch (type) {
+    const getActivityColor = (actionType) => {
+        switch (actionType) {
+            // Claim actions
             case 'claim_approved': return '#10b981';
             case 'claim_rejected': return '#ef4444';
+            case 'new_claim': return '#f59e0b';
+            case 'claim_submitted': return '#f59e0b';
+            case 'claim_withdrawn': return '#6b7280';
+            // Item actions
             case 'new_item': return '#0ea5e9';
+            case 'item_approved': return '#10b981';
+            case 'item_rejected': return '#ef4444';
+            // User actions
             case 'new_user': return '#8b5cf6';
+            case 'role_changed': return '#ec4899';
+            // AI actions
+            case 'ai_config_updated': return '#06b6d4';
             default: return '#64748b';
         }
     };
@@ -333,31 +366,41 @@ const AdminDashboard = () => {
                                         recentActivity.map((activity, i) => {
                                             const Icon = getActivityIcon(activity.type);
                                             const color = getActivityColor(activity.actionType);
+                                            const isApproval = activity.actionType?.includes('approved');
+                                            const isRejection = activity.actionType?.includes('rejected');
                                             return (
                                                 <div key={i} className="activity-item flex items-center gap-4 p-4 hover:bg-slate-800/30 transition-colors">
                                                     <div
-                                                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                                                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                                                         style={{
                                                             background: `linear-gradient(135deg, ${color}20, transparent)`,
                                                             border: `1px solid ${color}30`
                                                         }}
                                                     >
-                                                        <Icon size={22} style={{ color }} />
+                                                        {activity.images?.[0] ? (
+                                                            <img src={activity.images[0]} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Icon size={22} style={{ color }} />
+                                                        )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-white font-medium">{activity.message || 'Activity recorded'}</p>
                                                         <p className="text-sm text-slate-400">
-                                                            {activity.user?.fullName || 'System'} • {new Date(activity.createdAt).toLocaleTimeString()}
+                                                            {activity.type === 'audit' ? 'by ' : ''}{activity.user?.fullName || 'System'} • {new Date(activity.createdAt).toLocaleTimeString()}
                                                         </p>
                                                     </div>
                                                     <span
-                                                        className="px-3 py-1 rounded-full text-xs font-bold"
-                                                        style={{
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                                            isApproval ? 'bg-emerald-500/20 text-emerald-400' :
+                                                            isRejection ? 'bg-red-500/20 text-red-400' :
+                                                            ''
+                                                        }`}
+                                                        style={!isApproval && !isRejection ? {
                                                             background: `${color}20`,
                                                             color
-                                                        }}
+                                                        } : {}}
                                                     >
-                                                        {activity.actionType?.replace('_', ' ') || 'action'}
+                                                        {activity.actionType?.replace(/_/g, ' ') || 'action'}
                                                     </span>
                                                 </div>
                                             );
