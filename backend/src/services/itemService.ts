@@ -68,7 +68,7 @@ export async function submitItem(input: SubmitItemInput) {
     },
     timeMetadata: input.timeMetadata,
     images: input.images || [],
-    status: 'submitted',
+    status: 'pending', // Items now require admin approval
     aiMetadata: {
       similarityChecked: false,
       suggestedMatches: [],
@@ -97,7 +97,7 @@ export async function submitOrganizationItem(input: OrganizationItemInput) {
     },
     timeMetadata: input.timeMetadata,
     images: input.images || [],
-    status: 'submitted',
+    status: 'pending', // Items now require admin approval
     aiMetadata: {
       similarityChecked: false,
       suggestedMatches: [],
