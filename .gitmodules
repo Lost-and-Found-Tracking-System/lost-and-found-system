@@ -1,0 +1,3 @@
+[submodule "docs"]
+	path = docs
+	url = https://github.com/Lost-and-Found-Tracking-System/docs.git
