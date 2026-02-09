@@ -89,9 +89,9 @@ const Notifications = () => {
 
     const markAsRead = async (id) => {
         try {
-            await api.patch(`/v1/notifications/${id}/read`);
+            await api.put(`/v1/notifications/${id}/read`);
             setNotifications(prev =>
-                prev.map(n => n._id === id ? { ...n, read: true } : n)
+                prev.map(n => n._id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n)
             );
         } catch (error) {
             console.error('Failed to mark as read:', error);
@@ -100,9 +100,9 @@ const Notifications = () => {
 
     const markAllAsRead = async () => {
         try {
-            await api.patch('/v1/notifications/read-all');
+            await api.put('/v1/notifications/read-all');
             setNotifications(prev =>
-                prev.map(n => ({ ...n, read: true }))
+                prev.map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
             );
         } catch (error) {
             console.error('Failed to mark all as read:', error);
@@ -148,12 +148,12 @@ const Notifications = () => {
     };
 
     const filteredNotifications = notifications.filter(n => {
-        if (filter === 'unread') return !n.read;
-        if (filter === 'read') return n.read;
+        if (filter === 'unread') return !n.isRead;
+        if (filter === 'read') return n.isRead;
         return true;
     });
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter(n => !n.isRead).length;
 
     if (loading) {
         return (
@@ -246,7 +246,7 @@ const Notifications = () => {
                                         className="notif-item"
                                     >
                                         <TiltCard intensity={0.1}>
-                                            <div className={`p-5 rounded-2xl bg-slate-900/60 border backdrop-blur-xl transition-all group ${notification.read
+                                            <div className={`p-5 rounded-2xl bg-slate-900/60 border backdrop-blur-xl transition-all group ${notification.isRead
                                                     ? 'border-slate-700/50'
                                                     : 'border-primary-500/30 bg-primary-500/5'
                                                 }`}>
@@ -263,7 +263,7 @@ const Notifications = () => {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start justify-between gap-4">
                                                             <div>
-                                                                <h3 className={`font-semibold mb-1 ${notification.read ? 'text-slate-300' : 'text-white'}`}>
+                                                                <h3 className={`font-semibold mb-1 ${notification.isRead ? 'text-slate-300' : 'text-white'}`}>
                                                                     {notification.title}
                                                                 </h3>
                                                                 <p className="text-slate-400 text-sm">
@@ -272,7 +272,7 @@ const Notifications = () => {
                                                             </div>
 
                                                             {/* Unread indicator */}
-                                                            {!notification.read && (
+                                                            {!notification.isRead && (
                                                                 <div className="w-3 h-3 bg-primary-500 rounded-full animate-pulse flex-shrink-0" />
                                                             )}
                                                         </div>
@@ -284,7 +284,7 @@ const Notifications = () => {
                                                             </span>
 
                                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {!notification.read && (
+                                                                {!notification.isRead && (
                                                                     <button
                                                                         onClick={() => markAsRead(notification._id)}
                                                                         className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-primary-400 transition-colors"
