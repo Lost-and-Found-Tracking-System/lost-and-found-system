@@ -40,6 +40,21 @@ claimsRouter.post('/', authMiddleware, validateRequest(submitClaimSchema), async
   }
 })
 
+// Get user's claims - MUST be before /:id route
+claimsRouter.get('/user/my-claims', authMiddleware, async (req: AuthRequest, res, next) => {
+  try {
+    const claims = await ClaimModel.find({
+      claimantId: new Types.ObjectId(req.user?.userId),
+    })
+      .populate('itemId')
+      .sort({ submittedAt: -1 })
+
+    res.json(claims)
+  } catch (error) {
+    next(error)
+  }
+})
+
 // Get claim by ID
 claimsRouter.get('/:id', async (req, res, next) => {
   try {
@@ -52,21 +67,6 @@ claimsRouter.get('/:id', async (req, res, next) => {
     }
 
     res.json(claim)
-  } catch (error) {
-    next(error)
-  }
-})
-
-// Get user's claims
-claimsRouter.get('/user/my-claims', authMiddleware, async (req: AuthRequest, res, next) => {
-  try {
-    const claims = await ClaimModel.find({
-      claimantId: new Types.ObjectId(req.user?.userId),
-    })
-      .populate('itemId')
-      .sort({ submittedAt: -1 })
-
-    res.json(claims)
   } catch (error) {
     next(error)
   }
