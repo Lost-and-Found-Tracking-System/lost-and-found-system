@@ -157,18 +157,13 @@ const SubmitClaim = () => {
 
         setSubmitting(true);
         try {
-            const formData = new FormData();
-            formData.append('itemId', itemId);
-            validProofs.forEach((proof, i) => {
-                formData.append('ownershipProofs', proof);
-            });
-            images.forEach(image => {
-                formData.append('proofImages', image);
-            });
+            // Backend currently only supports JSON without file uploads
+            const payload = {
+                itemId,
+                ownershipProofs: validProofs
+            };
 
-            await api.post('/v1/claims', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post('/v1/claims', payload);
 
             setSuccess(true);
             gsap.to('.claim-form', {
@@ -294,24 +289,24 @@ const SubmitClaim = () => {
                                 <HolographicCard className="overflow-hidden rounded-2xl">
                                     <div className="aspect-video bg-slate-900 relative">
                                         {item?.images?.[0] ? (
-                                            <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                                            <img src={item.images[0]} alt={item.itemAttributes?.category} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <Package size={64} className="text-slate-700" />
                                             </div>
                                         )}
-                                        <div className={`absolute top-4 left-4 px-4 py-2 rounded-full text-sm font-bold ${item?.type === 'lost' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'
+                                        <div className={`absolute top-4 left-4 px-4 py-2 rounded-full text-sm font-bold ${item?.submissionType === 'lost' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'
                                             }`}>
-                                            {item?.type?.toUpperCase()}
+                                            {item?.submissionType?.toUpperCase()}
                                         </div>
                                     </div>
                                     <div className="p-6">
-                                        <h3 className="text-2xl font-bold text-white mb-3">{item?.title}</h3>
-                                        <p className="text-slate-400 mb-4 line-clamp-3">{item?.description}</p>
+                                        <h3 className="text-2xl font-bold text-white mb-3">{item?.itemAttributes?.category || 'Unknown Item'}</h3>
+                                        <p className="text-slate-400 mb-4 line-clamp-3">{item?.itemAttributes?.description || 'No description'}</p>
                                         <div className="flex items-center gap-4 text-sm text-slate-500">
-                                            <span>{item?.location?.zone}</span>
+                                            <span>{item?.location?.zoneId?.zoneName || 'Unknown location'}</span>
                                             <span>•</span>
-                                            <span>{new Date(item?.date || item?.createdAt).toLocaleDateString()}</span>
+                                            <span>{new Date(item?.timeMetadata?.lostOrFoundAt || item?.createdAt).toLocaleDateString()}</span>
                                         </div>
                                     </div>
                                 </HolographicCard>
