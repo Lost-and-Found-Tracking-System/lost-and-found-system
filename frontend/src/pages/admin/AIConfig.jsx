@@ -159,10 +159,16 @@ const AIConfig = () => {
                                             <span className="text-2xl font-bold text-blue-400 font-mono">{config.thresholds.autoApprove}%</span>
                                         </div>
                                     </div>
-                                    <div className="h-4 bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div className="relative h-8 flex items-center group/slider">
+                                        <div className="absolute inset-x-0 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full"
+                                                style={{ width: `${config.thresholds.autoApprove}%` }}
+                                            />
+                                        </div>
                                         <div
-                                            className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 rounded-full transition-all duration-300"
-                                            style={{ width: `${config.thresholds.autoApprove}%` }}
+                                            className="absolute h-5 w-5 bg-white rounded-full shadow-lg shadow-black/50 transform -translate-x-1/2 transition-transform duration-100 ease-out group-hover/slider:scale-110 pointer-events-none"
+                                            style={{ left: `${config.thresholds.autoApprove}%` }}
                                         />
                                         <input
                                             type="range"
@@ -170,7 +176,7 @@ const AIConfig = () => {
                                             max="100"
                                             value={config.thresholds.autoApprove}
                                             onChange={(e) => handleThresholdChange('autoApprove', e.target.value)}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                         />
                                     </div>
                                     <p className="text-slate-500 text-xs mt-3">Matches above this score are instantly verified without human review.</p>
@@ -183,10 +189,16 @@ const AIConfig = () => {
                                             <span className="text-2xl font-bold text-yellow-400 font-mono">{config.thresholds.partialMatch}%</span>
                                         </div>
                                     </div>
-                                    <div className="h-4 bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div className="relative h-8 flex items-center group/slider">
+                                        <div className="absolute inset-x-0 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-yellow-600 to-orange-400 rounded-full"
+                                                style={{ width: `${config.thresholds.partialMatch}%` }}
+                                            />
+                                        </div>
                                         <div
-                                            className="h-full bg-gradient-to-r from-yellow-600 to-orange-400 rounded-full transition-all duration-300"
-                                            style={{ width: `${config.thresholds.partialMatch}%` }}
+                                            className="absolute h-5 w-5 bg-white rounded-full shadow-lg shadow-black/50 transform -translate-x-1/2 transition-transform duration-100 ease-out group-hover/slider:scale-110 pointer-events-none"
+                                            style={{ left: `${config.thresholds.partialMatch}%` }}
                                         />
                                         <input
                                             type="range"
@@ -194,7 +206,7 @@ const AIConfig = () => {
                                             max="90"
                                             value={config.thresholds.partialMatch}
                                             onChange={(e) => handleThresholdChange('partialMatch', e.target.value)}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                         />
                                     </div>
                                     <p className="text-slate-500 text-xs mt-3">Matches in this range are flagged for manual admin approval.</p>
@@ -216,23 +228,29 @@ const AIConfig = () => {
 
                             <div className="space-y-6">
                                 {[
-                                    { key: 'text', label: 'Description Text', icon: Cpu, color: 'blue' },
-                                    { key: 'image', label: 'Visual Similarity', icon: Eye, color: 'purple' },
-                                    { key: 'location', label: 'Geolocation', icon: Map, color: 'emerald' },
-                                    { key: 'time', label: 'Time Window', icon: Clock, color: 'amber' },
+                                    { key: 'text', label: 'Description Text', icon: Cpu, textClass: 'text-blue-400', bgClass: 'bg-blue-500' },
+                                    { key: 'image', label: 'Visual Similarity', icon: Eye, textClass: 'text-purple-400', bgClass: 'bg-purple-500' },
+                                    { key: 'location', label: 'Geolocation', icon: Map, textClass: 'text-emerald-400', bgClass: 'bg-emerald-500' },
+                                    { key: 'time', label: 'Time Window', icon: Clock, textClass: 'text-amber-400', bgClass: 'bg-amber-500' },
                                 ].map((feature) => (
                                     <div key={feature.key} className="group">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2 text-slate-300">
-                                                <feature.icon size={16} className={`text-${feature.color}-400`} />
+                                                <feature.icon size={16} className={feature.textClass} />
                                                 <span className="font-medium">{feature.label}</span>
                                             </div>
-                                            <span className={`text-${feature.color}-400 font-mono font-bold`}>{config.weights[feature.key]}%</span>
+                                            <span className={`${feature.textClass} font-mono font-bold`}>{config.weights[feature.key]}%</span>
                                         </div>
-                                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative">
+                                        <div className="relative h-8 flex items-center group/slider">
+                                            <div className="absolute inset-x-0 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full ${feature.bgClass} rounded-full`}
+                                                    style={{ width: `${config.weights[feature.key]}%` }}
+                                                />
+                                            </div>
                                             <div
-                                                className={`h-full bg-${feature.color}-500 rounded-full transition-all duration-300`}
-                                                style={{ width: `${config.weights[feature.key]}%` }}
+                                                className={`absolute h-5 w-5 bg-white rounded-full shadow-lg shadow-black/50 transform -translate-x-1/2 transition-transform duration-100 ease-out group-hover/slider:scale-110 pointer-events-none border-2 border-${feature.textClass.split('-')[1]}-500`}
+                                                style={{ left: `${config.weights[feature.key]}%` }}
                                             />
                                             <input
                                                 type="range"
@@ -240,7 +258,7 @@ const AIConfig = () => {
                                                 max="100"
                                                 value={config.weights[feature.key]}
                                                 onChange={(e) => handleWeightChange(feature.key, e.target.value)}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             />
                                         </div>
                                     </div>
