@@ -1,279 +1,269 @@
-# Lost & Found System - DevDocs
+# Lost & Found System
+
+A full-stack web application for managing lost and found items on campus. Users can report lost or found items, browse listings, and submit claims. Administrators have access to dashboards for managing users, zones, and claims.
+
+---
 
 ## Quick Start
-```bash
-# 1. Clone & install
-git clone &lt;repo&gt; && cd lost-and-found-system
-cd backend && npm install && cd ../frontend && npm install
 
-# 2. Configure
-cp backend/.env.example backend/.env  # Edit with your values
+```bash
+# Clone repository
+git clone <repository-url>
+cd lost-and-found-system
+
+# Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
+
+# Environment setup
+cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
-# 3. Run (two terminals)
+# Run application (two terminals)
 cd backend && npm run dev
-cd frontend && npm run dev  # New terminal
-
-App runs at http://localhost:5173
+cd frontend && npm run dev
 ```
 
-This document provides a comprehensive guide for developers working on the Lost & Found System. It covers the architecture, technology stack, directory structure, setup instructions, and development workflows.
+**Frontend**: http://localhost:5173  
+**Backend**: http://localhost:5000
 
-## 1. Project Overview
+---
 
-The Lost & Found System is a full-stack web application designed to manage lost and found items on campus. It allows students, faculty, and visitors to report lost or found items, browse existing reports, and submit claims. Administrators have a dashboard for managing zones, users, and claims.
+## Table of Contents
 
-## 2. Architecture
+- [Quick Start](#quick-start)
+- [Overview](#overview)
+- [Application URLs](#application-urls)
+- [Running the Application](#running-the-application)
+  - [Backend](#backend)
+  - [Frontend](#frontend)
+- [Environment Variables](#environment-variables)
+  - [Backend Configuration](#backend-configuration)
+  - [Frontend Configuration](#frontend-configuration)
+- [Testing](#testing)
+  - [Backend Tests](#backend-tests)
+  - [Frontend Tests](#frontend-tests)
+  - [End-to-End Tests](#end-to-end-tests)
+- [Database Seeding](#database-seeding)
+- [API Overview](#api-overview)
+- [Development Guidelines](#development-guidelines)
+- [Important Notes](#important-notes)
 
-The application follows a **Layered Architecture** (specifically the Controller-Service-Repository pattern), ensuring separation of concerns and maintainability.
+---
 
-### Backend Layers
+## Overview
 
-1.  **Presentation Layer (Routes & Middleware)**
-    -   **Routes**: Define API endpoints (`src/routes`).
-    -   **Middleware**: Handles cross-cutting concerns like Authentication (`authMiddleware`), Validation (`validateRequest`), and Error Handling (`errorHandler`).
-    -   **Controller Logic**: Implemented directly within route handlers (or separate controllers). responsible for parsing requests, invoking services, and sending responses.
+Lost & Found is a full-stack web application built with React (frontend) and Node.js/Express (backend) that helps users report and find lost items on campus.
 
-2.  **Business Logic Layer (Services)**
-    -   Encapsulates core business rules (`src/services`).
-    -   Examples: `authService` (handles login/register logic), `itemService` (manages lost/found items).
-    -   Decoupled from HTTP specifics (req/res objects).
+---
 
-3.  **Data Access Layer (Models)**
-    -   Defines data structure using **Mongoose** schemas (`src/models`).
-    -   Interacts directly with the **MongoDB** database.
-    -   Includes schema validation and pre/post hooks.
+## Application URLs
 
-### Data Flow
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:5000
 
-```mermaid
-graph TD
-    Client[Client (Frontend)] -->|HTTP Request| Middleware[Middleware (Auth/Validation)]
-    Middleware -->|Valid Request| Route[Route Handler]
-    Route -->|Call Method| Service[Service Layer]
-    Service -->|Query/Save| Model[Mongoose Model]
-    Model -->|Read/Write| DB[(MongoDB)]
-    
-    subgraph Backend
-    Middleware
-    Route
-    Service
-    Model
-    end
-```
+---
 
-## 3. Technology Stack
+## Running the Application
 
-### Frontend
--   **Framework**: [React](https://react.dev/) (v18)
--   **Build Tool**: [Vite](https://vitejs.dev/)
--   **Language**: JavaScript (JSX)
--   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
--   **Animation**: [GSAP](https://gsap.com/), [Framer Motion](https://www.framer.com/motion/)
--   **State Management**: React Context API
--   **Routing**: [React Router](https://reactrouter.com/)
--   **HTTP Client**: [Axios](https://axios-http.com/)
--   **Icons**: [Lucide React](https://lucide.dev/)
--   **Testing**: [Vitest](https://vitest.dev/), [React Testing Library](https://testing-library.com/)
+Start both servers in separate terminals.
 
 ### Backend
--   **Runtime**: [Node.js](https://nodejs.org/)
--   **Framework**: [Express](https://expressjs.com/)
--   **Language**: [TypeScript](https://www.typescriptlang.org/)
--   **Database ODM**: [Mongoose](https://mongoosejs.com/)
--   **Authentication**: JSON Web Tokens (JWT), Argon2 (hashing)
--   **File Storage**: [Multer](https://github.com/expressjs/multer) (local/cloud)
--   **Validation**: [Zod](https://zod.dev/)
--   **Job Queue**: [Bull](https://github.com/OptimalBits/bull) (Redis based)
--   **Email**: [SendGrid](https://sendgrid.com/) / Backend Mailer
--   **PDF Generation**: [PDFKit](https://pdfkit.org/)
--   **Testing**: [Vitest](https://vitest.dev/), [Supertest](https://github.com/ladjs/supertest)
 
-### E2E Testing
--   **Framework**: [Playwright](https://playwright.dev/)
-
-## 4. Directory Structure
-
-The project is organized as a monorepo with distinct directories for backend, frontend, and end-to-end tests.
-
-```
-lost-and-found-system/
-├── backend/                # Backend API Server
-│   ├── src/
-│   │   ├── config/         # Configuration (DB, env, etc.)
-│   │   ├── middleware/     # Custom middleware (auth, error handling)
-│   │   ├── models/         # Mongoose schemas/models
-│   │   ├── routes/         # API route definitions
-│   │   ├── schemas/        # Zod validation schemas
-│   │   ├── scripts/        # Utility scripts (e.g., seeding)
-│   │   ├── services/       # Business logic layer
-│   │   ├── tests/          # Unit and integration tests
-│   │   ├── utils/          # Helper functions
-│   │   ├── app.ts          # Express app setup
-│   │   └── server.ts       # Server entry point
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/               # Frontend React Application
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── context/        # React Context providers (AuthContext)
-│   │   ├── effects/        # Animation/Visual effects
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── pages/          # Application pages/routes
-│   │   ├── services/       # API integration services
-│   │   ├── tests/          # Component tests
-│   │   ├── App.jsx         # Main application component
-│   │   └── main.jsx        # Entry point
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── e2e/                    # End-to-End Tests
-│   ├── fixtures/           # Test fixtures
-│   ├── page-objects/       # Page Object Model classes
-│   ├── tests/              # Test specifications (*.spec.ts)
-│   ├── package.json
-│   └── playwright.config.ts
-└── README.md               # Quick start guide
+```bash
+cd backend
+npm run dev
 ```
 
-## 5. Setup & Installation
+The backend server runs on **http://localhost:5000**.
 
-### Prerequisites
--   **Node.js**: v18 or higher
--   **MongoDB**: Running locally or via Atlas connection URI
--   **Redis**: Required for Bull queue (if background jobs are enabled)
+### Frontend
 
-### Installation
+```bash
+cd frontend
+npm run dev
+```
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd lost-and-found-system
-    ```
+The frontend application is available at **http://localhost:5173**.
 
-2.  **Install Backend Dependencies:**
-    ```bash
-    cd backend
-    npm install
-    ```
+---
 
-3.  **Install Frontend Dependencies:**
-    ```bash
-    cd ../frontend
-    npm install
-    ```
+## Environment Variables
 
-4.  **Install E2E Dependencies (Optional):**
-    ```bash
-    cd ../e2e
-    npm install
-    npx playwright install  # Install browser binaries
-    ```
+### Backend Configuration
 
-### Environment Configuration
-
-#### Backend (.env)
-Create a `.env` file in the `backend` directory:
+Create a `.env` file in the `backend/` directory:
 
 ```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/lostfound
-JWT_SECRET=your_jwt_secret_key
-JWT_REFRESH_SECRET=your_refresh_token_secret
-# Email Configuration (SendGrid or similar)
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+CLIENT_URL=http://localhost:5173
 SENDGRID_API_KEY=your_sendgrid_key
 FROM_EMAIL=no-reply@example.com
-# Client URL for CORS
-CLIENT_URL=http://localhost:5173
 ```
 
-#### Frontend (.env)
-Create a `.env` file in the `frontend` directory:
+### Frontend Configuration
+
+Create a `.env` file in the `frontend/` directory:
 
 ```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-## 6. Running the Application
+---
 
-### Development Mode
-
-You need to run both backend and frontend servers concurrently.
-
-**Backend:**
-```bash
-cd backend
-npm run dev
-# Server starts on http://localhost:5000
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm run dev
-# App accessible at http://localhost:5173
-```
-
-### Seeding Data (Optional)
-
-To populate the database with initial data (e.g., admin user):
-
-```bash
-cd backend
-npx tsx src/scripts/seed-users.ts
-```
-**Default Admin Credentials:**
--   Email: `admin@example.com`
--   Password: `Admin@123`
-
-## 7. Testing
+## Testing
 
 ### Backend Tests
-Run unit and integration tests using Vitest.
+
+Run unit and integration tests using Vitest:
+
 ```bash
 cd backend
-npm test            # Run all tests
-npm run test:watch  # Watch mode
-npm run test:coverage # Generate coverage report
+npm test
+npm run test:watch
+npm run test:coverage
 ```
 
 ### Frontend Tests
-Run component tests using Vitest and React Testing Library.
+
+Run component tests using Vitest and React Testing Library:
+
 ```bash
 cd frontend
 npm test
 ```
 
-### End-to-End (E2E) Tests
-Run browser automation tests using Playwright.
+### End-to-End Tests
+
+Run Playwright tests (ensure frontend and backend are running):
+
 ```bash
 cd e2e
-npx playwright test        # Run all tests in headless mode
-npx playwright test --ui   # Run with UI mode
-npx playwright show-report # View HTML report
+npx playwright test
+npx playwright test --ui
+npx playwright show-report
 ```
 
-Ensure both backend and frontend servers are running before executing E2E tests, unless Playwright is configured to start them automatically.
+---
 
-## 8. Development Guidelines
+## Database Seeding
 
-### Git Workflow
--   Create feature branches from `main` or `develop`.
--   Use meaningful commit messages.
--   Ensure all tests pass before merging.
+Populate the database with initial data such as an admin user:
 
-### Code Style
--   **Backend**: Adhere to ESLint and Prettier configurations. TypeScript is strict.
--   **Frontend**: Follow React best practices (functional components, hooks). Tailwind classes should be organized.
+```bash
+cd backend
+npx tsx src/scripts/seed-users.ts
+```
 
-## 9. API Documentation
+**Default admin credentials:**
+- Email: `admin@example.com`
+- Password: `Admin@123`
 
-Detailed API documentation can be found in the backend routes or generated via tools like Swagger (if integrated). Key endpoints include:
+---
 
--   `POST /api/v1/auth/register`
--   `POST /api/v1/auth/login`
--   `GET /api/v1/items`
--   `POST /api/v1/items`
--   `GET /api/v1/claims`
+## API Overview
 
-See `backend/src/routes` for full route definitions.
+Common API endpoints:
+
+- `POST /api/v1/auth/register` - Register a new user
+- `POST /api/v1/auth/login` - User login
+- `GET /api/v1/items` - Get all items
+- `POST /api/v1/items` - Create a new item
+- `GET /api/v1/claims` - Get all claims
+
+For full API definitions, see `backend/src/routes`.
+
+---
+
+## Development Guidelines
+
+- Create feature branches from `main` or `develop`
+- Use clear and meaningful commit messages
+- Ensure all tests pass before merging
+- Follow ESLint and Prettier rules
+- Use functional React components and hooks
+- Keep backend services free of HTTP-specific logic
+
+---
+
+## Important Notes
+
+- MongoDB must be running locally or accessible via Atlas
+- Redis is required if Bull job queues are enabled
+- Environment variables should **never** be committed to version control
+- Always use `.env.example` files to document required environment variables
+
+---
+
+## Quick Start Checklist
+
+- [ ] Install dependencies: `npm install` in both `frontend/` and `backend/`
+- [ ] Set up MongoDB (local or Atlas)
+- [ ] Create `.env` files in both directories
+- [ ] Seed the database with initial data
+- [ ] Start backend server: `cd backend && npm run dev`
+- [ ] Start frontend server: `cd frontend && npm run dev`
+- [ ] Access the application at http://localhost:5173
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Backend won't start:**
+- Verify MongoDB is running
+- Check that all environment variables are set correctly
+- Ensure port 5000 is not already in use
+
+**Frontend won't connect to backend:**
+- Verify `VITE_API_URL` in frontend `.env` is correct
+- Check that the backend server is running
+- Clear browser cache and restart dev server
+
+**Database connection errors:**
+- Verify MongoDB connection string in `MONGODB_URI`
+- Check MongoDB service is running
+- Ensure database user has proper permissions
+
+---
+
+## Project Structure
+
+```
+lost-found/
+├── backend/
+│   ├── src/
+│   │   ├── routes/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── middleware/
+│   │   └── scripts/
+│   ├── tests/
+│   └── .env
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   └── .env
+└── e2e/
+    └── tests/
+```
+
+---
+
+## Additional Resources
+
+- [Express.js Documentation](https://expressjs.com/)
+- [React Documentation](https://react.dev/)
+- [Vite Documentation](https://vitejs.dev/)
+- [Vitest Documentation](https://vitest.dev/)
+- [Playwright Documentation](https://playwright.dev/)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+
+---
