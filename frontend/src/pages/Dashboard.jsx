@@ -59,14 +59,18 @@ const Dashboard = () => {
         const fetchData = async () => {
             try {
                 const [statsRes, itemsRes, claimsRes] = await Promise.all([
-                    api.get('/v1/dashboard/stats').catch(() => ({ data: {} })),
-                    api.get('/v1/items/my-items?limit=4').catch(() => ({ data: { items: [] } })),
-                    api.get('/v1/claims/my-claims?limit=4').catch(() => ({ data: { claims: [] } }))
+                    api.get('/v1/dashboard/stats').catch((err) => {
+                        console.error('Stats fetch failed:', err);
+                        return { data: {} };
+                    }),
+                    api.get('/v1/items/user/my-items?limit=4').catch(() => ({ data: [] })),
+                    api.get('/v1/claims/user/my-claims?limit=4').catch(() => ({ data: [] }))
                 ]);
 
                 setStats(statsRes.data || {});
-                setRecentItems(itemsRes.data.items || []);
-                setRecentClaims(claimsRes.data.claims || []);
+                // The API returns the array directly, not wrapped in an object
+                setRecentItems(Array.isArray(itemsRes.data) ? itemsRes.data : []);
+                setRecentClaims(Array.isArray(claimsRes.data) ? claimsRes.data : []);
             } catch (error) {
                 console.error('Dashboard fetch error:', error);
             } finally {
@@ -310,23 +314,23 @@ const Dashboard = () => {
                                         recentItems.map((item, i) => (
                                             <Link
                                                 key={i}
-                                                to={`/items/${item._id}`}
+                                                to={`/item/${item._id}`}
                                                 className="flex items-center gap-4 p-4 hover:bg-slate-800/30 transition-colors group"
                                             >
                                                 <div className="w-14 h-14 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
                                                     {item.images?.[0] ? (
-                                                        <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                                                        <img src={item.images[0]} alt={item.itemAttributes?.category} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <Package size={24} className="text-slate-500" />
                                                     )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-white truncate group-hover:text-primary-400 transition-colors">{item.title}</h3>
-                                                    <p className="text-sm text-slate-400 truncate">{item.location?.zone || 'Unknown location'}</p>
+                                                    <h3 className="font-semibold text-white truncate group-hover:text-primary-400 transition-colors">{item.itemAttributes?.category || 'Unknown Item'}</h3>
+                                                    <p className="text-sm text-slate-400 truncate">{item.itemAttributes?.description || item.location?.zoneId?.zoneName || 'Unknown location'}</p>
                                                 </div>
-                                                <div className={`px-3 py-1 rounded-full text-xs font-bold ${item.type === 'lost' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                                                <div className={`px-3 py-1 rounded-full text-xs font-bold ${item.submissionType === 'lost' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
                                                     }`}>
-                                                    {item.type}
+                                                    {item.submissionType}
                                                 </div>
                                             </Link>
                                         ))
@@ -361,18 +365,27 @@ const Dashboard = () => {
                                     {recentClaims.length > 0 ? (
                                         recentClaims.map((claim, i) => (
                                             <div key={i} className="flex items-center gap-4 p-4">
-                                                <div className="w-14 h-14 rounded-xl bg-slate-800 flex items-center justify-center">
-                                                    <FileText size={24} className="text-slate-500" />
+                                                <div className="w-14 h-14 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
+                                                    {(() => {
+                                                        const imageProof = claim.ownershipProofs?.find(p => p.startsWith('http'));
+                                                        const itemImage = claim.itemId?.images?.[0] || claim.item?.images?.[0];
+                                                        const img = imageProof || itemImage;
+                                                        return img ? (
+                                                            <img src={img} alt="Claim" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <FileText size={24} className="text-slate-500" />
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-white truncate">{claim.item?.title || 'Item Claim'}</h3>
+                                                    <h3 className="font-semibold text-white truncate">{claim.itemId?.itemAttributes?.category || claim.item?.itemAttributes?.category || 'Item Claim'}</h3>
                                                     <p className="text-sm text-slate-400">
-                                                        {new Date(claim.createdAt).toLocaleDateString()}
+                                                        {new Date(claim.submittedAt).toLocaleDateString()}
                                                     </p>
                                                 </div>
                                                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${claim.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                                                        claim.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                                                            'bg-red-500/20 text-red-400'
+                                                    claim.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                                                        'bg-red-500/20 text-red-400'
                                                     }`}>
                                                     {claim.status}
                                                 </div>
