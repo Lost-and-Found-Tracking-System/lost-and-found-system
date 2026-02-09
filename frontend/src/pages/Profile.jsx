@@ -39,15 +39,15 @@ import {
 } from '../effects';
 
 const Profile = () => {
-    const { user, updateUser } = useAuth();
+    const { user, updateProfile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
     const [stats, setStats] = useState({
-        itemsReported: 0,
-        claimsSubmitted: 0,
-        itemsResolved: 0
+        totalReported: 0,
+        totalClaims: 0,
+        resolvedItems: 0
     });
 
     const [formData, setFormData] = useState({
@@ -93,19 +93,21 @@ const Profile = () => {
                 { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.1, delay: 0.5, ease: 'back.out(2)' }
             );
 
-            // Animate stat numbers
-            document.querySelectorAll('.stat-value').forEach(el => {
-                const target = parseInt(el.dataset.value) || 0;
-                gsap.fromTo(el,
-                    { innerText: 0 },
-                    { innerText: target, duration: 2, snap: { innerText: 1 }, delay: 0.8, ease: 'power2.out' }
-                );
-            });
-
         }, containerRef);
 
         return () => ctx.revert();
     }, []);
+
+    // Animate stat numbers when stats are loaded
+    useEffect(() => {
+        document.querySelectorAll('.stat-value').forEach(el => {
+            const target = parseInt(el.dataset.value) || 0;
+            gsap.fromTo(el,
+                { innerText: 0 },
+                { innerText: target, duration: 2, snap: { innerText: 1 }, ease: 'power2.out' }
+            );
+        });
+    }, [stats]);
 
     const handleSave = async () => {
         setLoading(true);
@@ -113,8 +115,8 @@ const Profile = () => {
         setSuccess('');
 
         try {
-            const res = await api.patch('/v1/users/profile', formData);
-            updateUser(res.data.user);
+            // Use updateProfile from AuthContext which handles the response mapping
+            await updateProfile(formData);
             setSuccess('Profile updated successfully!');
             setEditing(false);
 
@@ -124,7 +126,8 @@ const Profile = () => {
                 { y: 0, opacity: 1, duration: 0.5, ease: 'back.out(2)' }
             );
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to update profile');
+            console.error('Profile update error:', err);
+            setError(err.error || err.response?.data?.error || 'Failed to update profile');
         } finally {
             setLoading(false);
         }
