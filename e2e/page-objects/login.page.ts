@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 export class LoginPage {
     readonly page: Page;
@@ -9,16 +9,19 @@ export class LoginPage {
     readonly errorMessage: Locator;
     readonly registerLink: Locator;
     readonly forgotPasswordLink: Locator;
+    readonly visitorLink: Locator;
 
     constructor(page: Page) {
         this.page = page;
         this.emailInput = page.locator('input[type="email"]');
         this.passwordInput = page.locator('input[type="password"]');
-        this.submitButton = page.locator('button[type="submit"]');
+        // The login button uses .login-btn class (ElasticButton component), not type="submit"
+        this.submitButton = page.locator('.login-btn').first();
         this.passwordToggle = page.locator('[data-testid="password-toggle"], button:has(svg)').first();
-        this.errorMessage = page.locator('.text-red-400, [class*="error"]');
+        this.errorMessage = page.locator('.text-red-400, [class*="error"], [class*="Error"]');
         this.registerLink = page.locator('a[href="/register"]');
         this.forgotPasswordLink = page.locator('a[href*="forgot"]');
+        this.visitorLink = page.locator('a[href="/register-visitor"]');
     }
 
     async goto() {

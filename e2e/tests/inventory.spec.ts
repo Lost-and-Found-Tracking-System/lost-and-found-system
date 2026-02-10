@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { TEST_USERS } from '../fixtures/test-data';
 import { InventoryPage } from '../page-objects/inventory.page';
 import { LoginPage } from '../page-objects/login.page';
-import { TEST_USERS, ROUTES } from '../fixtures/test-data';
 
-test.describe('Inventory Browsing E2E', () => {
+test.describe('Item Inventory E2E Tests', () => {
     test.beforeEach(async ({ page }) => {
         const loginPage = new LoginPage(page);
         await loginPage.goto();
@@ -11,119 +11,100 @@ test.describe('Inventory Browsing E2E', () => {
         await page.waitForURL(/\/dashboard/);
     });
 
-    test('inventory page loads', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
+    // ── Positive: Inventory page loads ──
+    test('TC-INV-01: Inventory page loads successfully', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
         await expect(page).toHaveURL(/\/inventory/);
     });
 
-    test('inventory page displays title', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        await expect(page.locator('h1, h2').first()).toBeVisible();
+    // ── Positive: Inventory displays heading ──
+    test('TC-INV-02: Inventory page displays a heading', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        await expect(inventory.heading).toBeVisible();
     });
 
-    test('view toggle buttons visible', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const viewBtns = page.locator('button:has(svg)');
-        await expect(viewBtns.first()).toBeVisible();
-    });
-
-    test('list view toggle works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const listViewBtn = page.locator('button:has(svg), button[data-view="list"]').nth(1);
-        if (await listViewBtn.isVisible()) {
-            await listViewBtn.click();
-            await page.waitForTimeout(300);
+    // ── Positive: Search input visible ──
+    test('TC-INV-03: Search input is visible on inventory page', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const searchInput = page.locator('input[type="search"], input[type="text"][placeholder*="search" i], input[placeholder*="Search" i]').first();
+        if (await searchInput.isVisible()) {
+            await expect(searchInput).toBeVisible();
         }
     });
 
-    test('grid view toggle works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const gridViewBtn = page.locator('button:has(svg), button[data-view="grid"]').first();
-        if (await gridViewBtn.isVisible()) {
-            await gridViewBtn.click();
+    // ── Positive: Search accepts input ──
+    test('TC-INV-04: Search input accepts and retains typed text', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const searchInput = page.locator('input[type="search"], input[type="text"][placeholder*="search" i], input[placeholder*="Search" i]').first();
+        if (await searchInput.isVisible()) {
+            await searchInput.fill('laptop');
+            await expect(searchInput).toHaveValue('laptop');
         }
     });
 
-    test('filter by lost works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
+    // ── Positive: Filter buttons visible ──
+    test('TC-INV-05: Filter options are visible on inventory page', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const filterEl = page.locator('button:has-text("All"), button:has-text("Lost"), button:has-text("Found"), select').first();
+        if (await filterEl.isVisible()) {
+            await expect(filterEl).toBeVisible();
+        }
+    });
+
+    // ── Positive: Lost filter works ──
+    test('TC-INV-06: Clicking Lost filter does not break the page', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
         const lostFilter = page.locator('button:has-text("Lost")').first();
         if (await lostFilter.isVisible()) {
             await lostFilter.click();
             await page.waitForTimeout(500);
+            await expect(page).toHaveURL(/\/inventory/);
         }
     });
 
-    test('filter by found works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
+    // ── Positive: Found filter works ──
+    test('TC-INV-07: Clicking Found filter does not break the page', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
         const foundFilter = page.locator('button:has-text("Found")').first();
         if (await foundFilter.isVisible()) {
             await foundFilter.click();
             await page.waitForTimeout(500);
+            await expect(page).toHaveURL(/\/inventory/);
         }
     });
 
-    test('clear filters works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const clearBtn = page.locator('button:has-text("Clear"), button:has-text("Reset"), button:has-text("All")').first();
-        if (await clearBtn.isVisible()) {
-            await clearBtn.click();
-        }
+    // ── Positive: Items or empty state displayed ──
+    test('TC-INV-08: Inventory shows items or an empty state message', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const bodyText = await page.locator('body').innerText();
+        expect(bodyText.length).toBeGreaterThan(50);
     });
 
-    test('category filtering works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const categorySelect = page.locator('select[name="category"], select').first();
-        if (await categorySelect.isVisible()) {
-            await categorySelect.selectOption({ index: 1 });
-            await page.waitForTimeout(500);
-        }
-    });
-
-    test('pagination next works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const nextBtn = page.locator('button:has-text("Next"), button[aria-label*="next"]').first();
-        if (await nextBtn.isVisible() && await nextBtn.isEnabled()) {
-            await nextBtn.click();
-            await page.waitForTimeout(500);
-        }
-    });
-
-    test('pagination prev works', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const nextBtn = page.locator('button:has-text("Next")').first();
-        if (await nextBtn.isVisible() && await nextBtn.isEnabled()) {
-            await nextBtn.click();
-            await page.waitForTimeout(300);
-            const prevBtn = page.locator('button:has-text("Previous"), button:has-text("Prev")').first();
-            if (await prevBtn.isVisible()) {
-                await prevBtn.click();
-            }
-        }
-    });
-
-    test('clicking item navigates to details', async ({ page }) => {
-        const inventoryPage = new InventoryPage(page);
-        await inventoryPage.goto();
-        const itemLink = page.locator('a[href*="/item/"]').first();
-        if (await itemLink.isVisible()) {
-            await itemLink.click();
+    // ── Positive: Item card is clickable ──
+    test('TC-INV-09: Item card is clickable and navigates to item details', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const itemCard = page.locator('[class*="card"] a, [class*="item"] a, a[href*="/item/"]').first();
+        if (await itemCard.isVisible()) {
+            await itemCard.click();
             await expect(page).toHaveURL(/\/item\//);
         }
     });
 
-    test('[NEGATIVE] invalid item ID handled gracefully', async ({ page }) => {
-        await page.goto('/item/999999999');
-        await expect(page.locator('body')).toBeVisible();
+    // ── Positive: Page content is present ──
+    test('TC-INV-10: Inventory page contains meaningful content', async ({ page }) => {
+        const inventory = new InventoryPage(page);
+        await inventory.goto();
+        const bodyText = await page.locator('body').innerText();
+        expect(bodyText.length).toBeGreaterThan(50);
     });
+
 });

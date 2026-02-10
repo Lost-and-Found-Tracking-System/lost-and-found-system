@@ -1,44 +1,30 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 export class DashboardPage {
     readonly page: Page;
-    readonly welcomeMessage: Locator;
-    readonly statsCards: Locator;
-    readonly myItemsSection: Locator;
-    readonly myClaimsSection: Locator;
-    readonly reportItemLink: Locator;
-    readonly browseItemsLink: Locator;
-    readonly sidebar: Locator;
+    readonly heading: Locator;
+    readonly statsSection: Locator;
+    readonly sidebarNav: Locator;
+    readonly reportButton: Locator;
+    readonly inventoryLink: Locator;
+    readonly claimsLink: Locator;
+    readonly notificationsLink: Locator;
+    readonly profileLink: Locator;
 
     constructor(page: Page) {
         this.page = page;
-        this.welcomeMessage = page.locator('h1:has-text("Dashboard"), p:has-text("Welcome")');
-        this.statsCards = page.locator('.grid .bg-slate-900, [class*="stat"]');
-        this.myItemsSection = page.locator('text=My Items, text=Your Items').first();
-        this.myClaimsSection = page.locator('text=My Claims, text=Your Claims').first();
-        this.reportItemLink = page.locator('a[href="/report"]');
-        this.browseItemsLink = page.locator('a[href="/inventory"]');
-        this.sidebar = page.locator('nav, aside').first();
+        this.heading = page.locator('h1, h2').first();
+        this.statsSection = page.locator('[class*="stat"], [class*="card"], [class*="metric"]').first();
+        this.sidebarNav = page.locator('nav, [class*="sidebar"], [class*="Sidebar"]').first();
+        this.reportButton = page.locator('a[href="/report"], button:has-text("Report")').first();
+        this.inventoryLink = page.locator('a[href="/inventory"]').first();
+        this.claimsLink = page.locator('a[href="/my-claims"]').first();
+        this.notificationsLink = page.locator('a[href="/notifications"]').first();
+        this.profileLink = page.locator('a[href="/profile"]').first();
     }
 
     async goto() {
         await this.page.goto('/dashboard');
         await this.page.waitForLoadState('networkidle');
-    }
-
-    async getStatsCount() {
-        return await this.statsCards.count();
-    }
-
-    async clickReportItem() {
-        await this.reportItemLink.click();
-    }
-
-    async clickBrowseItems() {
-        await this.browseItemsLink.click();
-    }
-
-    async getWelcomeText() {
-        return await this.welcomeMessage.textContent();
     }
 }

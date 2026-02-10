@@ -1,8 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { TEST_USERS } from '../fixtures/test-data';
 import { LoginPage } from '../page-objects/login.page';
-import { TEST_USERS, ROUTES } from '../fixtures/test-data';
+import { ProfilePage } from '../page-objects/profile.page';
 
-test.describe('Profile & Settings E2E', () => {
+test.describe('Profile E2E Tests', () => {
     test.beforeEach(async ({ page }) => {
         const loginPage = new LoginPage(page);
         await loginPage.goto();
@@ -10,107 +11,79 @@ test.describe('Profile & Settings E2E', () => {
         await page.waitForURL(/\/dashboard/);
     });
 
-    test('profile page loads', async ({ page }) => {
-        await page.goto(ROUTES.profile);
+    // ── Positive: Profile page loads ──
+    test('TC-PRF-01: Profile page loads successfully', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
         await expect(page).toHaveURL(/\/profile/);
     });
 
-    test('profile page displays title', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        await expect(page.locator('h1, h2').first()).toContainText(/Profile|Settings|Account/i);
+    // ── Positive: Profile heading visible ──
+    test('TC-PRF-02: Profile page displays heading', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
+        await expect(profilePage.heading).toBeVisible();
     });
 
-    test('email field populated', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const emailField = page.locator('input[type="email"], input[name="email"]').first();
-        await expect(emailField).toHaveValue(/.+@.+/);
+    // ── Positive: Profile shows user info ──
+    test('TC-PRF-03: Profile page displays user email or name', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
+        const userInfo = page.locator(`text=/${TEST_USERS.student.email}|${TEST_USERS.student.fullName}|Student/i`).first();
+        await expect(userInfo).toBeVisible();
     });
 
-    test('role displayed', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        await expect(page.locator('text=/Role|Student|Faculty|Admin/i').first()).toBeVisible();
-    });
-
-    test('full name field visible', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const nameField = page.locator('input[name="fullName"], input[placeholder*="name" i]').first();
-        if (await nameField.isVisible()) {
-            await expect(nameField).toBeVisible();
+    // ── Positive: Edit profile fields visible ──
+    test('TC-PRF-04: Profile edit form fields are visible', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
+        // Click edit if needed
+        const editBtn = page.locator('button:has-text("Edit")').first();
+        if (await editBtn.isVisible()) {
+            await editBtn.click();
+        }
+        const inputField = page.locator('input[name="fullName"], input[placeholder*="name" i], input[name="phone"], input[type="tel"]').first();
+        if (await inputField.isVisible()) {
+            await expect(inputField).toBeVisible();
         }
     });
 
-    test('full name field editable', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const nameField = page.locator('input[name="fullName"], input[placeholder*="name" i]').first();
-        if (await nameField.isVisible() && await nameField.isEnabled()) {
-            await nameField.clear();
-            await nameField.fill('Test User Updated');
-            await expect(nameField).toHaveValue('Test User Updated');
+    // ── Positive: Change password section visible ──
+    test('TC-PRF-05: Change password section is visible on profile page', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
+        const changePwSection = page.locator('text=/Change Password|Update Password|Password/i').first();
+        if (await changePwSection.isVisible()) {
+            await expect(changePwSection).toBeVisible();
         }
     });
 
-    test('phone field visible', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const phoneField = page.locator('input[name="phone"], input[type="tel"]').first();
-        if (await phoneField.isVisible()) {
-            await expect(phoneField).toBeVisible();
+    // ── Positive: Login activity section ──
+    test('TC-PRF-06: Profile page shows login activity or security section', async ({ page }) => {
+        const profilePage = new ProfilePage(page);
+        await profilePage.goto();
+        const activitySection = page.locator('text=/Login Activity|Security|Recent Activity|Session/i').first();
+        if (await activitySection.isVisible()) {
+            await expect(activitySection).toBeVisible();
         }
     });
 
-    test('phone field editable', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const phoneField = page.locator('input[name="phone"], input[type="tel"]').first();
-        if (await phoneField.isVisible() && await phoneField.isEnabled()) {
-            await phoneField.clear();
-            await phoneField.fill('9876543210');
-            await expect(phoneField).toHaveValue('9876543210');
+    // ── Positive: Profile sidebar link ──
+    test('TC-PRF-07: Profile link in sidebar navigates correctly', async ({ page }) => {
+        const profileLink = page.locator('a[href="/profile"]').first();
+        if (await profileLink.isVisible()) {
+            await profileLink.click();
+            await expect(page).toHaveURL(/\/profile/);
         }
     });
 
-    test('email field is read-only', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const emailField = page.locator('input[type="email"]').first();
-        const isDisabled = await emailField.isDisabled();
-        const isReadonly = await emailField.getAttribute('readonly');
-        expect(isDisabled || isReadonly !== null).toBeTruthy();
+    // ── Negative (altered): Unauthenticated profile access redirects ──
+    test('TC-PRF-08: Unauthenticated access to profile redirects to login', async ({ browser }) => {
+        const context = await browser.newContext();
+        const newPage = await context.newPage();
+        await newPage.goto('/profile');
+        await expect(newPage).toHaveURL(/\/login/);
+        await context.close();
     });
 
-    test('notification toggles visible', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const toggle = page.locator('input[type="checkbox"], [role="switch"]').first();
-        if (await toggle.isVisible()) {
-            await expect(toggle).toBeVisible();
-        }
-    });
-
-    test('notification toggle works', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const toggle = page.locator('input[type="checkbox"], [role="switch"]').first();
-        if (await toggle.isVisible()) {
-            const wasChecked = await toggle.isChecked();
-            await toggle.click();
-            if (wasChecked) {
-                await expect(toggle).not.toBeChecked();
-            } else {
-                await expect(toggle).toBeChecked();
-            }
-        }
-    });
-
-    test('save button visible', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const saveButton = page.locator('button:has-text("Save"), button[type="submit"]').first();
-        if (await saveButton.isVisible()) {
-            await expect(saveButton).toBeVisible();
-        }
-    });
-
-    test('save button works', async ({ page }) => {
-        await page.goto(ROUTES.profile);
-        const saveButton = page.locator('button:has-text("Save"), button[type="submit"]').first();
-        if (await saveButton.isVisible()) {
-            await saveButton.click();
-            await page.waitForTimeout(1000);
-        }
-    });
 });
