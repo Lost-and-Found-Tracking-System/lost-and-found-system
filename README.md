@@ -406,7 +406,7 @@ This project uses a **multi-repository architecture** under the [Lost-and-Found-
 | Repository | Purpose |
 |-----------|---------|
 | [`lost-and-found-system`](https://github.com/Lost-and-Found-Tracking-System/lost-and-found-system) | Main application (backend + frontend + e2e + AI/ML) |
-| [`docs`](https://github.com/Lost-and-Found-Tracking-System/docs) | Documentation submodule (DevDocs, Test Reports, Notebook Soft Copy, UML Diagrams) |
+| [`docs`](https://github.com/Lost-and-Found-Tracking-System/docs) | Documentation submodule (DevDocs, Test Reports, Notebook Soft Copy, UML Diagrams, Architecture Diagram) |
 
 ---
 
