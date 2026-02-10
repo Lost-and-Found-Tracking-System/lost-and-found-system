@@ -51,9 +51,9 @@ Built for **Amrita Vishwa Vidyapeetham** campus — helps students, faculty, and
 
 | Module | Feature | Backend Service | What's Next |
 |--------|---------|:-:|-------------|
-| **AI Matching** | YOLO object detection + OpenCLIP image embeddings + TF-IDF text similarity | ✅ `embeddingService.ts`, `findImagePairs.ts` | API route exposure, frontend match display UI |
-| **Fraud Detection** | Competing claim evaluation, suspicion scoring, repeat-offender detection | ✅ `fraudDetectionService.ts` | Wire into claim submission route, admin fraud dashboard |
-| **PDF Generation** | Handover letters and claim confirmation PDFs via PDFKit | ✅ `letterService.ts` | API download endpoint, frontend download button |
+| **AI Matching** | YOLO object detection + OpenCLIP image embeddings + TF-IDF text similarity | `embeddingService.ts`, `findImagePairs.ts` | API route exposure, frontend match display UI |
+| **Fraud Detection** | Competing claim evaluation, suspicion scoring, repeat-offender detection | `fraudDetectionService.ts` | Wire into claim submission route, admin fraud dashboard |
+| **PDF Generation** | Handover letters and claim confirmation PDFs via PDFKit | `letterService.ts` | API download endpoint, frontend download button |
 
 > **AI Model Status:** YOLO models have been tested on custom campus data (photos taken inside Amrita) and perform appreciably well. One of the four YOLO models can count objects per class across different categories within the same photo. Fine-tuning notebooks are available in `YOLO_Finetuning/`.
 
@@ -406,7 +406,7 @@ This project uses a **multi-repository architecture** under the [Lost-and-Found-
 | Repository | Purpose |
 |-----------|---------|
 | [`lost-and-found-system`](https://github.com/Lost-and-Found-Tracking-System/lost-and-found-system) | Main application (backend + frontend + e2e + AI/ML) |
-| [`docs`](https://github.com/Lost-and-Found-Tracking-System/docs) | Documentation submodule (DevDocs, test reports) |
+| [`docs`](https://github.com/Lost-and-Found-Tracking-System/docs) | Documentation submodule (DevDocs, Test Reports, Notebook Soft Copy) |
 
 ---
 
