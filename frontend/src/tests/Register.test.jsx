@@ -1,3 +1,7 @@
+/**
+ * @module tests/Register
+ * @description Unit tests for Register page — form fields, password validation, registration flow, error handling, optional fields, and loading state.
+ */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";

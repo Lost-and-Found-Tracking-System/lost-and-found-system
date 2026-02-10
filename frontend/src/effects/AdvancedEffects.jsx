@@ -1,6 +1,11 @@
 /**
- * ADVANCED PREMIUM EFFECTS - PART 2
- * More implementations from CodePen effects
+ * @module effects/AdvancedEffects
+ * @description Advanced premium visual effect components (Part 2). Includes
+ * DNALoader, GlowingOrb, SplitRevealText, MeteorShower, HolographicCard,
+ * MatrixRain, BreathingCircle, CyberpunkGrid, NeonText, PulseRings,
+ * FloatingIcons, GradientBorderCard, ScrollProgress, HoverUnderline,
+ * LoadingDots, TiltCard, AnimatedShapes, ShadowText, ParticleExplosion,
+ * and StackedCards. All built with GSAP and React.
  */
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';

@@ -1,6 +1,6 @@
 /**
- * PREMIUM SUBMIT CLAIM PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/SubmitClaim
+ * @description Claim submission page for proving ownership of a lost/found item.
  */
 
 import React, { useState, useEffect, useRef } from 'react';

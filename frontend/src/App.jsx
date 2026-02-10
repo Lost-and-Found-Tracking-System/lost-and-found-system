@@ -1,3 +1,9 @@
+/**
+ * @module App
+ * @description Root application component — configures React Router, AuthProvider,
+ * and declares all public, protected, and admin routes.
+ */
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -23,7 +29,14 @@ import ZoneManagement from './pages/admin/ZoneManagement';
 import ClaimsManagement from './pages/admin/Claims';
 import AIConfig from './pages/admin/AIConfig';
 
-// Protected Route Component
+/**
+ * Route guard that redirects unauthenticated users to `/login`
+ * and unauthorised roles to `/dashboard`.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Child route element
+ * @param {string[]} [props.allowedRoles=[]] - Roles permitted to access this route
+ */
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     const { user, loading } = useAuth();
 
@@ -46,7 +59,13 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return children;
 };
 
-// Public Route Component (redirect to dashboard if already logged in)
+/**
+ * Route guard for public pages — redirects authenticated users to their
+ * dashboard (admin or regular) to prevent re-visiting login/register.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Child route element
+ */
 const PublicRoute = ({ children }) => {
     const { user, loading } = useAuth();
 

@@ -1,3 +1,11 @@
+/**
+ * @module components/Layout
+ * @description Shared page layout wrapper — renders the Sidebar alongside page content.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Page content
+ */
+
 import React from 'react';
 import Sidebar from './Sidebar';
 

@@ -1,3 +1,7 @@
+/**
+ * @module tests/LogoutConfirmModal
+ * @description Unit tests for LogoutConfirmModal — open/close state, cancel callback, confirm callback, and message display.
+ */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { vi } from "vitest";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";

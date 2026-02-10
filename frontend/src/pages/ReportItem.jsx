@@ -1,6 +1,6 @@
 /**
- * PREMIUM REPORT ITEM PAGE
- * Multi-step form with advanced effects
+ * @module pages/ReportItem
+ * @description Multi-step item reporting form for lost/found items with image upload and zone selection.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';

@@ -1,7 +1,6 @@
 /**
- * PREMIUM LANDING PAGE
- * Using ALL 39+ effects from CodePen inspirations
- * FUTURE-TECH aesthetic - Maximum visual impact
+ * @module pages/LandingPage
+ * @description Premium landing page showcasing 39+ visual effects with a future-tech aesthetic.
  */
 
 import React, { useEffect, useRef, useState } from 'react';

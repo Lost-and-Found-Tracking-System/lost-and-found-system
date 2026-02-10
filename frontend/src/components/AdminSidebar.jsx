@@ -1,3 +1,9 @@
+/**
+ * @module components/AdminSidebar
+ * @description Collapsible admin sidebar navigation with GSAP-animated expand/collapse.
+ * Shows admin-specific navigation links, user profile widget, and a link back to the user app.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';

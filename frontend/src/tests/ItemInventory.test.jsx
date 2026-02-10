@@ -1,3 +1,7 @@
+/**
+ * @module tests/ItemInventory
+ * @description Unit tests for ItemInventory — rendering, search, type/category filters, view modes, empty/error states, and debounce.
+ */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";

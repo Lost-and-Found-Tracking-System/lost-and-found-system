@@ -1,3 +1,11 @@
+/**
+ * @module hooks/useGSAPAnimations
+ * @description Reusable GSAP animation hooks for React. Provides hooks for
+ * page transitions, scroll reveals, magnetic hover, 3D card tilts, stagger
+ * animations, counters, elastic buttons, modals, parallax, spotlight cursors,
+ * text reveals, and split-text effects. Also exports utilities for refreshing
+ * ScrollTrigger and killing active tweens.
+ */
 import { useEffect, useRef, useLayoutEffect, useCallback, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';

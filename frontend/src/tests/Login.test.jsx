@@ -1,3 +1,7 @@
+/**
+ * @module tests/Login
+ * @description Unit tests for the Login page — form rendering, input handling, auth submission, role-based navigation, error display, and loading state.
+ */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";

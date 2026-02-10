@@ -1,6 +1,6 @@
 /**
- * PREMIUM LOGIN PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Login
+ * @description Login page with email/password auth, role-based redirect, and visual effects.
  */
 
 import React, { useState, useEffect, useRef } from 'react';

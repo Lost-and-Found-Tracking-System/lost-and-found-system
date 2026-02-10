@@ -1,6 +1,6 @@
 /**
- * PREMIUM ITEM INVENTORY PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/ItemInventory
+ * @description Browsable item inventory with search, type/category filters, and grid/list views.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';

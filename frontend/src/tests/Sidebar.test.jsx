@@ -1,3 +1,7 @@
+/**
+ * @module tests/Sidebar
+ * @description Unit tests for Sidebar — navigation links, logout modal flow, role-based admin link visibility, and route paths.
+ */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { vi } from "vitest";

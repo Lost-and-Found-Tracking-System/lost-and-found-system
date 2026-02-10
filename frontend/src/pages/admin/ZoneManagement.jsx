@@ -1,3 +1,7 @@
+/**
+ * @module pages/admin/ZoneManagement
+ * @description Campus zone CRUD management page with animated form transitions and zone cards.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';

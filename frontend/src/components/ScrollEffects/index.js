@@ -1,6 +1,8 @@
 /**
- * PREMIUM SCROLL EFFECTS - Main Export
- * All scroll effects converted from premium CodePen examples
+ * @module components/ScrollEffects
+ * @description Barrel export for premium scroll-driven effect components.
+ * Re-exports ParallaxSVGScroll, HyperScroll3D, HeroRevealScroll, and the
+ * full PremiumScrollEffects library.
  */
 
 // Parallax SVG Scroll (isladjan style - day to night transition)

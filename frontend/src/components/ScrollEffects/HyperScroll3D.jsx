@@ -1,7 +1,8 @@
 /**
- * HYPER SCROLL 3D - Based on the "brutal mode" CodePen
- * 3D perspective scroll with cards flying through space
- * Features: HUD, velocity-based effects, star warping, chromatic aberration
+ * @module components/ScrollEffects/HyperScroll3D
+ * @description 3D perspective scroll component with cards flying through
+ * space. Features a HUD overlay, velocity-based chromatic aberration, star
+ * warping, and dynamic perspective. Also exports {@link HyperCard}.
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';

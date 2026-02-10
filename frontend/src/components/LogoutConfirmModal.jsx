@@ -1,3 +1,13 @@
+/**
+ * @module components/LogoutConfirmModal
+ * @description Confirmation dialog shown before logging the user out.
+ *
+ * @param {object} props
+ * @param {boolean} props.isOpen - Whether the modal is visible
+ * @param {Function} props.onClose - Called when the user cancels
+ * @param {Function} props.onConfirm - Called when the user confirms logout
+ */
+
 import React from 'react';
 import { LogOut, X } from 'lucide-react';
 

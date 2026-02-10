@@ -1,3 +1,7 @@
+/**
+ * @module tests/ReportItem
+ * @description Unit tests for ReportItem — multi-step form navigation, submission types, category selection, description input, and step indicators.
+ */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";

@@ -1,3 +1,7 @@
+/**
+ * @module tests/Dashboard
+ * @description Unit tests for the Dashboard page — welcome message, stats cards, quick actions, sidebar, items, and claims.
+ */
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";

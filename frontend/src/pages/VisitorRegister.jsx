@@ -1,3 +1,7 @@
+/**
+ * @module pages/VisitorRegister
+ * @description Visitor registration page with multi-step OTP verification and advanced effects.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { gsap } from 'gsap';
@@ -170,7 +174,7 @@ const VisitorRegister = () => {
                         <div
                             key={s}
                             className={`h-2 rounded-full transition-all duration-500 ease-out ${s === step ? 'w-12 bg-primary-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' :
-                                    s < step ? 'w-4 bg-green-500' : 'w-4 bg-slate-800'
+                                s < step ? 'w-4 bg-green-500' : 'w-4 bg-slate-800'
                                 }`}
                         />
                     ))}

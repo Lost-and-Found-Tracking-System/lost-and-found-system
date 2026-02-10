@@ -1,3 +1,9 @@
+/**
+ * @module components/Sidebar
+ * @description Collapsible user sidebar navigation with GSAP-animated transitions.
+ * Displays navigation links, user info, admin link (for admin roles), and a logout button.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';

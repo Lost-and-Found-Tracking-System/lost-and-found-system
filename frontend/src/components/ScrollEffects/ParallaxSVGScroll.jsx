@@ -1,7 +1,8 @@
 /**
- * PARALLAX SVG SCROLL - Based on isladjan CodePen
- * Premium day-to-night scroll transition with mountains, sun, clouds, bats, stars
- * Converted to React JSX with GSAP ScrollTrigger
+ * @module components/ScrollEffects/ParallaxSVGScroll
+ * @description SVG-based parallax scroll component with a day-to-night scene
+ * transition. Renders mountains, sun, clouds, bats, and stars driven by GSAP
+ * ScrollTrigger. Includes an internal SVGScene sub-component.
  */
 
 import React, { useEffect, useRef } from 'react';

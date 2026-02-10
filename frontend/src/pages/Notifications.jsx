@@ -1,6 +1,6 @@
 /**
- * PREMIUM NOTIFICATIONS PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Notifications
+ * @description Notifications page with read/unread filtering, mark-all-read, and delete actions.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -220,8 +220,8 @@ const Notifications = () => {
                                 key={f.id}
                                 onClick={() => setFilter(f.id)}
                                 className={`filter-btn px-5 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${filter === f.id
-                                        ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-lg shadow-primary-500/25'
-                                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                    ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-lg shadow-primary-500/25'
+                                    : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                                     }`}
                             >
                                 {f.label}
@@ -247,8 +247,8 @@ const Notifications = () => {
                                     >
                                         <TiltCard intensity={0.1}>
                                             <div className={`p-5 rounded-2xl bg-slate-900/60 border backdrop-blur-xl transition-all group ${notification.isRead
-                                                    ? 'border-slate-700/50'
-                                                    : 'border-primary-500/30 bg-primary-500/5'
+                                                ? 'border-slate-700/50'
+                                                : 'border-primary-500/30 bg-primary-500/5'
                                                 }`}>
                                                 <div className="flex items-start gap-4">
                                                     {/* Icon */}
