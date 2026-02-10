@@ -1,3 +1,10 @@
+/**
+ * @module routes/v1/auth
+ * @description Authentication route handlers.
+ * Endpoints: register, login, logout, token refresh, visitor OTP registration,
+ * password reset (email OTP), and password change.
+ */
+
 import { Router } from 'express'
 import type { Response } from 'express'
 import { validateRequest } from '../../middleware/validation.js'

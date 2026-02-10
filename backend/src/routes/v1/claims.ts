@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/claims
+ * @description Ownership claim route handlers.
+ * Endpoints: submit a claim, get user's claims, get claim by ID, and withdraw a claim.
+ */
+
 import { Router } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'
 import { validateRequest } from '../../middleware/validation.js'

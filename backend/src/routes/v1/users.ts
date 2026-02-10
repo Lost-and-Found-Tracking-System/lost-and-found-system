@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/users
+ * @description User profile and settings route handlers.
+ * Endpoints: get/update profile, login activity, user's items, and notification preferences.
+ */
+
 import { Router } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthRequest } from '../../middleware/auth.js'

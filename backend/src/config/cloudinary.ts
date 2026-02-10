@@ -1,5 +1,8 @@
-// Cloudinary Configuration
-// Cloud-based image storage service
+/**
+ * @module config/cloudinary
+ * @description Cloudinary SDK configuration for cloud-based image storage.
+ * Initializes the Cloudinary v2 client with credentials from environment variables.
+ */
 
 import { v2 as cloudinary } from 'cloudinary'
 import { env } from './env.js'
@@ -13,7 +16,10 @@ cloudinary.config({
 
 export { cloudinary }
 
-// Check if Cloudinary is properly configured
+/**
+ * Checks whether Cloudinary credentials are properly configured.
+ * @returns `true` if cloud_name, api_key, and api_secret are all set
+ */
 export function isCloudinaryConfigured(): boolean {
     const config = cloudinary.config()
     return !!(config.cloud_name && config.api_key && config.api_secret)

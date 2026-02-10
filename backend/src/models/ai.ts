@@ -1,7 +1,16 @@
+/**
+ * @module models/ai
+ * @description Mongoose schemas for AI-powered item matching.
+ * Includes: AI Matches (similarity scores), AI Configurations (thresholds/weights),
+ * and AI Decision Versions (rollback history).
+ */
+
 import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
 
-// AI MATCHES
+// ─── AI MATCHES ────────────────────────────────────────────────────────
+
+/** @internal Sub-schema for feature-level similarity score breakdown */
 const featureBreakdownSchema = new Schema({
   text: { type: Number, required: true },
   image: { type: Number, required: true },

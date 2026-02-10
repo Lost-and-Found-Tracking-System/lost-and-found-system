@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/zones
+ * @description Campus zone management route handlers.
+ * Endpoints: CRUD operations for campus zones and location validation.
+ */
+
 import { Router } from 'express'
 import type { Response } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'

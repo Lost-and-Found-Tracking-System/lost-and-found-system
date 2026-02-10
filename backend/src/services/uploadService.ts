@@ -1,5 +1,8 @@
-// Upload Service - Cloudinary Integration
-// Handles image uploads, deletions, and transformations
+/**
+ * @module services/uploadService
+ * @description Image upload service using Cloudinary.
+ * Handles single and batch uploads, image deletion, and URL optimization with transformations.
+ */
 
 import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 import type { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary'

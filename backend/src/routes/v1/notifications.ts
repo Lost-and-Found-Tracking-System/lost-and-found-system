@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/notifications
+ * @description Notification route handlers.
+ * Endpoints: list notifications, mark as read (single/all), and delete notifications.
+ */
+
 import { Router } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthRequest } from '../../middleware/auth.js'
