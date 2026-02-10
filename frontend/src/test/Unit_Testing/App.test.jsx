@@ -1,8 +1,17 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import { ProtectedRoute, PublicRoute, AppRoutes } from '../../App'
-import { AuthProvider, useAuth } from '../../context/AuthContext'
+import { MemoryRouter } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+
+// Mock react-router-dom so BrowserRouter becomes a pass-through
+// This lets us wrap App in MemoryRouter from the test instead
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual('react-router-dom')
+    return {
+        ...actual,
+        BrowserRouter: ({ children }) => <>{children}</>
+    }
+})
 
 // Mock AuthContext
 vi.mock('../../context/AuthContext', async () => {
@@ -35,14 +44,17 @@ vi.mock('../../pages/admin/ZoneManagement', () => ({ default: () => <div>Zone Ma
 vi.mock('../../pages/admin/Claims', () => ({ default: () => <div>Claims Management</div> }))
 vi.mock('../../pages/admin/AIConfig', () => ({ default: () => <div>AI Config</div> }))
 
+// Import App AFTER all mocks are set up
+import App from '../../App'
+
 describe('App Routing Components', () => {
 
     describe('ProtectedRoute', () => {
         it('shows loading spinner when loading', () => {
             useAuth.mockReturnValue({ user: null, loading: true })
             const { container } = render(
-                <MemoryRouter>
-                    <ProtectedRoute><div>Protected Content</div></ProtectedRoute>
+                <MemoryRouter initialEntries={['/dashboard']}>
+                    <App />
                 </MemoryRouter>
             )
             expect(container.querySelector('.animate-spin')).toBeInTheDocument()
@@ -51,13 +63,8 @@ describe('App Routing Components', () => {
         it('redirects to login if no user', () => {
             useAuth.mockReturnValue({ user: null, loading: false })
             render(
-                <MemoryRouter initialEntries={['/protected']}>
-                    <Routes>
-                        <Route path="/login" element={<div>Login Page</div>} />
-                        <Route path="/protected" element={
-                            <ProtectedRoute><div>Protected Content</div></ProtectedRoute>
-                        } />
-                    </Routes>
+                <MemoryRouter initialEntries={['/dashboard']}>
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Login Page')).toBeInTheDocument()
@@ -66,25 +73,18 @@ describe('App Routing Components', () => {
         it('renders children if user is authenticated', () => {
             useAuth.mockReturnValue({ user: { role: 'student' }, loading: false })
             render(
-                <MemoryRouter>
-                    <ProtectedRoute><div>Protected Content</div></ProtectedRoute>
+                <MemoryRouter initialEntries={['/dashboard']}>
+                    <App />
                 </MemoryRouter>
             )
-            expect(screen.getByText('Protected Content')).toBeInTheDocument()
+            expect(screen.getByText('Dashboard Page')).toBeInTheDocument()
         })
 
         it('redirects to dashboard if user lacks required role', () => {
             useAuth.mockReturnValue({ user: { role: 'student' }, loading: false })
             render(
                 <MemoryRouter initialEntries={['/admin']}>
-                    <Routes>
-                        <Route path="/dashboard" element={<div>Dashboard Page</div>} />
-                        <Route path="/admin" element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <div>Admin Content</div>
-                            </ProtectedRoute>
-                        } />
-                    </Routes>
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Dashboard Page')).toBeInTheDocument()
@@ -96,27 +96,17 @@ describe('App Routing Components', () => {
             useAuth.mockReturnValue({ user: { role: 'student' }, loading: false })
             render(
                 <MemoryRouter initialEntries={['/login']}>
-                    <Routes>
-                        <Route path="/dashboard" element={<div>Dashboard Page</div>} />
-                        <Route path="/login" element={
-                            <PublicRoute><div>Login Content</div></PublicRoute>
-                        } />
-                    </Routes>
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Dashboard Page')).toBeInTheDocument()
         })
 
-        it('redirects info admin to admin dashboard if logged in', () => {
+        it('redirects admin to admin dashboard if logged in', () => {
             useAuth.mockReturnValue({ user: { role: 'admin' }, loading: false })
             render(
                 <MemoryRouter initialEntries={['/login']}>
-                    <Routes>
-                        <Route path="/admin" element={<div>Admin Dashboard</div>} />
-                        <Route path="/login" element={
-                            <PublicRoute><div>Login Content</div></PublicRoute>
-                        } />
-                    </Routes>
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Admin Dashboard')).toBeInTheDocument()
@@ -125,11 +115,11 @@ describe('App Routing Components', () => {
         it('renders children if not logged in', () => {
             useAuth.mockReturnValue({ user: null, loading: false })
             render(
-                <MemoryRouter>
-                    <PublicRoute><div>Login Content</div></PublicRoute>
+                <MemoryRouter initialEntries={['/login']}>
+                    <App />
                 </MemoryRouter>
             )
-            expect(screen.getByText('Login Content')).toBeInTheDocument()
+            expect(screen.getByText('Login Page')).toBeInTheDocument()
         })
     })
 
@@ -138,7 +128,7 @@ describe('App Routing Components', () => {
             useAuth.mockReturnValue({ user: null, loading: false })
             render(
                 <MemoryRouter initialEntries={['/']}>
-                    <AppRoutes />
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Landing Page')).toBeInTheDocument()
@@ -148,7 +138,7 @@ describe('App Routing Components', () => {
             useAuth.mockReturnValue({ user: { role: 'student' }, loading: false })
             render(
                 <MemoryRouter initialEntries={['/dashboard']}>
-                    <AppRoutes />
+                    <App />
                 </MemoryRouter>
             )
             expect(screen.getByText('Dashboard Page')).toBeInTheDocument()
