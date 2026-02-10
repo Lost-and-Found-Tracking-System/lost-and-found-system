@@ -1,6 +1,10 @@
-// Background Job Schedulers with Bull Queue
-// Production-ready job processing for data retention, reminders, and escalation
-// Falls back to direct execution when Bull/Redis unavailable
+/**
+ * @module services/schedulers
+ * @description Background job scheduling and processing service.
+ * Uses Bull queues (Redis) for reliable job processing with cron-based scheduling.
+ * Handles data retention, reminders, claim escalation, and queued email/SMS delivery.
+ * Falls back to direct execution when Redis is unavailable.
+ */
 
 import cron from 'node-cron'
 import {

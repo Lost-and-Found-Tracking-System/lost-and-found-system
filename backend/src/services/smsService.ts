@@ -1,6 +1,9 @@
-// SMS Service
-// Fast2SMS integration for SMS OTP (India-focused, free tier available)
-// Replaces Twilio which doesn't support Indian numbers on free tier
+/**
+ * @module services/smsService
+ * @description SMS delivery service via Fast2SMS (India-focused).
+ * Provides OTP delivery, claim status notifications, and security alert SMS.
+ * Falls back to console logging when the API key is not configured.
+ */
 
 import { env } from '../config/env.js'
 

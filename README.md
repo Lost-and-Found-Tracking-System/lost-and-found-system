@@ -1,6 +1,6 @@
 # Lost & Found System
 
-A full-stack web application for managing lost and found items on campus. Users can report lost or found items, browse listings, and submit claims. Administrators have access to dashboards for managing users, zones, and claims.
+A web application for managing lost and found items on campus. Users can report lost or found items, browse listings, and submit claims. Administrators have access to dashboards for managing users, zones, and approving users' claims.
 
 ---
 
@@ -53,7 +53,7 @@ cd frontend && npm run dev
 
 ## Overview
 
-Lost & Found is a full-stack web application built with React (frontend) and Node.js/Express (backend) that helps users report and find lost items on campus.
+Lost & Found is a full-stack web application built with React (frontend) and Node.js/Express (backend) that helps users report and find lost items on campus, with admin approval.
 
 ---
 
@@ -151,7 +151,7 @@ npx playwright show-report
 
 ## Database Seeding
 
-Populate the database with initial data such as an admin user:
+Populate the database with initial data like that of an admin, user, and teacher:
 
 ```bash
 cd backend
@@ -167,7 +167,6 @@ npx tsx src/scripts/seed-users.ts
 ## API Overview
 
 Common API endpoints:
-
 - `POST /api/v1/auth/register` - Register a new user
 - `POST /api/v1/auth/login` - User login
 - `GET /api/v1/items` - Get all items

@@ -1,6 +1,14 @@
+/**
+ * @module services/itemService
+ * @description Item management service for the lost-and-found system.
+ * Handles item submission, draft management, zone validation, retrieval, and advanced search.
+ */
+
 import { ItemModel, DraftSubmissionModel, CampusZoneModel } from '../models/index.js'
 import crypto from 'crypto'
 import { Types } from 'mongoose'
+
+/** Input data for submitting a lost/found item report */
 
 export interface SubmitItemInput {
   submissionType: 'lost' | 'found'

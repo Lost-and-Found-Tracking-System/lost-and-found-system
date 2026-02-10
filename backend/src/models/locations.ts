@@ -1,7 +1,18 @@
+/**
+ * @module models/locations
+ * @description Mongoose schema for campus zone geospatial data.
+ * Campus zones are polygonal areas used for item location tagging and zone-based filtering.
+ */
+
 import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
 
-// CAMPUS ZONES
+// ─── CAMPUS ZONES ──────────────────────────────────────────────────────
+
+/**
+ * Campus zone schema — defines named geographic zones with GeoJSON Polygon boundaries.
+ * Used for spatial queries and zone-based item filtering on the campus map.
+ */
 const campusZoneSchema = new Schema({
   zoneName: { type: String, required: true },
   geoBoundary: {

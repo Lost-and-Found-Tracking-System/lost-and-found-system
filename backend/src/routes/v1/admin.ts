@@ -1,3 +1,10 @@
+/**
+ * @module routes/v1/admin
+ * @description Admin-only route handlers (requires admin or delegated_admin role).
+ * Endpoints: user management, item review, claim decisions, campus zones,
+ * announcements, AI configuration, audit logs, and system maintenance triggers.
+ */
+
 import { Router } from 'express'
 import type { Response } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'

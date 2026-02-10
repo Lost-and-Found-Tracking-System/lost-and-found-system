@@ -1,7 +1,8 @@
-// Upload Routes - Image Upload Endpoints
-// POST /api/v1/uploads/image - Single image upload
-// POST /api/v1/uploads/images - Multiple image upload
-// DELETE /api/v1/uploads/:publicId - Delete an image
+/**
+ * @module routes/v1/uploads
+ * @description Image upload route handlers using multer and Cloudinary.
+ * Endpoints: single image upload, multiple image upload, and image deletion.
+ */
 
 import { Router } from 'express'
 import type { Response } from 'express'

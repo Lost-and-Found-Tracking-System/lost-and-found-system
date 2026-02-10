@@ -1,9 +1,18 @@
+/**
+ * @module schemas
+ * @description Zod validation schemas for all API request payloads.
+ * Each schema defines the expected shape, types, and constraints for request bodies and queries.
+ * Paired `type` exports provide TypeScript types inferred from the schemas.
+ *
+ * Sections: Auth, User, Item, Claim, Campus Zone, Admin, Notification, Password Reset,
+ * Visitor Registration, Organization Submission, and Draft Save.
+ */
+
 import { z } from 'zod'
 
-// ============================================
-// AUTH SCHEMAS
-// ============================================
+// ─── AUTH SCHEMAS ──────────────────────────────────────────────────────
 
+/** Schema for user registration — validates email, name, and password */
 export const registerSchema = z.object({
   institutionalId: z.string().optional(),
   email: z.string().email('Invalid email'),

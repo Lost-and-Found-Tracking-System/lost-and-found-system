@@ -1,5 +1,9 @@
-// PDF Letter Generation Service
-// Generates professional handover letters and claim confirmations using PDFKit
+/**
+ * @module services/letterService
+ * @description PDF letter generation service using PDFKit.
+ * Generates professional handover letters and claim confirmation documents
+ * with headers, footers, barcodes, and institutional branding.
+ */
 
 import PDFDocument from 'pdfkit'
 

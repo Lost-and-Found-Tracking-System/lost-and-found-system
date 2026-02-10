@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/items
+ * @description Lost and found item route handlers.
+ * Endpoints: submit items, manage drafts, search/filter items, and retrieve items by ID or type.
+ */
+
 import { Router } from 'express'
 import type { Response } from 'express'
 import { authMiddleware, optionalAuthMiddleware } from '../../middleware/auth.js'
