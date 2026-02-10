@@ -43,7 +43,7 @@ const MyClaims = () => {
 
     const fetchClaims = async () => {
         try {
-            const res = await api.get('/v1/claims/my-claims');
+            const res = await api.get('/v1/claims/user/my-claims');
             setClaims(res.data.claims || res.data || []);
         } catch (error) {
             console.error('Failed to fetch claims:', error);
@@ -217,10 +217,10 @@ const MyClaims = () => {
                                                 <div className="flex flex-col md:flex-row gap-6">
                                                     {/* Item Image */}
                                                     <div className="w-full md:w-48 h-48 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800">
-                                                        {claim.item?.images?.[0] ? (
+                                                        {(claim.itemId?.images?.[0] || claim.item?.images?.[0]) ? (
                                                             <img
-                                                                src={claim.item.images[0]}
-                                                                alt={claim.item.title}
+                                                                src={claim.itemId?.images?.[0] || claim.item?.images?.[0]}
+                                                                alt={claim.itemId?.itemAttributes?.category || claim.item?.itemAttributes?.category}
                                                                 className="w-full h-full object-cover"
                                                             />
                                                         ) : (
@@ -235,10 +235,10 @@ const MyClaims = () => {
                                                         <div className="flex items-start justify-between gap-4 mb-4">
                                                             <div>
                                                                 <h3 className="text-2xl font-bold text-white mb-2">
-                                                                    {claim.item?.title || 'Claimed Item'}
+                                                                    {claim.itemId?.itemAttributes?.category || claim.item?.itemAttributes?.category || 'Claimed Item'}
                                                                 </h3>
                                                                 <p className="text-slate-400 line-clamp-2">
-                                                                    {claim.item?.description || 'No description available'}
+                                                                    {claim.itemId?.itemAttributes?.description || claim.item?.itemAttributes?.description || 'No description available'}
                                                                 </p>
                                                             </div>
 
@@ -255,29 +255,42 @@ const MyClaims = () => {
                                                         <div className="flex flex-wrap items-center gap-6 mb-4 text-sm text-slate-400">
                                                             <div className="flex items-center gap-2">
                                                                 <Calendar size={16} className="text-violet-400" />
-                                                                <span>Claimed: {new Date(claim.createdAt).toLocaleDateString()}</span>
+                                                                <span>Claimed: {new Date(claim.submittedAt).toLocaleDateString()}</span>
                                                             </div>
-                                                            {claim.item?.location?.zone && (
+                                                            {(claim.itemId?.location?.zone || claim.item?.location?.zone) && (
                                                                 <div className="flex items-center gap-2">
                                                                     <MapPin size={16} className="text-cyan-400" />
-                                                                    <span>{claim.item.location.zone}</span>
+                                                                    <span>{claim.itemId?.location?.zone || claim.item?.location?.zone}</span>
                                                                 </div>
                                                             )}
                                                         </div>
 
                                                         {/* Proofs Preview */}
-                                                        {claim.ownershipProofs?.length > 0 && (
-                                                            <div className="mb-4">
-                                                                <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Submitted Proofs:</p>
-                                                                <p className="text-slate-300 text-sm line-clamp-2">
-                                                                    {claim.ownershipProofs.join(' • ')}
-                                                                </p>
-                                                            </div>
-                                                        )}
+                                                        {claim.ownershipProofs?.length > 0 && (() => {
+                                                            const textProofs = claim.ownershipProofs.filter(p => !p.startsWith('http'));
+                                                            const imageProofs = claim.ownershipProofs.filter(p => p.startsWith('http'));
+                                                            return (
+                                                                <div className="mb-4">
+                                                                    <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Submitted Proofs:</p>
+                                                                    {textProofs.length > 0 && (
+                                                                        <p className="text-slate-300 text-sm line-clamp-2 mb-2">
+                                                                            {textProofs.join(' • ')}
+                                                                        </p>
+                                                                    )}
+                                                                    {imageProofs.length > 0 && (
+                                                                        <div className="flex gap-2 flex-wrap">
+                                                                            {imageProofs.map((url, idx) => (
+                                                                                <img key={idx} src={url} alt={`Proof ${idx + 1}`} className="w-16 h-16 rounded-lg object-cover border border-slate-600" />
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
 
                                                         {/* Actions */}
                                                         <div className="flex items-center gap-3">
-                                                            <Link to={`/items/${claim.item?._id}`}>
+                                                            <Link to={`/item/${claim.itemId?._id || claim.item?._id}`}>
                                                                 <ElasticButton className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-2 transition-all">
                                                                     <Eye size={16} />
                                                                     View Item

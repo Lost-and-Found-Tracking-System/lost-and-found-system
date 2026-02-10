@@ -1,215 +1,268 @@
-# Lost & Found System - Amrita Campus
+# Lost & Found System
 
-A full-stack application for managing lost and found items on campus.
+A web application for managing lost and found items on campus. Users can report lost or found items, browse listings, and submit claims. Administrators have access to dashboards for managing users, zones, and approving users' claims.
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-- Node.js 18+
-- MongoDB running locally or MongoDB Atlas
-- npm or yarn
-
-### 1. Clone & Install
-
 ```bash
-git clone <repo-url>
+# Clone repository
+git clone <repository-url>
 cd lost-and-found-system
 
-# Install backend
-cd backend
-npm install
+# Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
 
-# Install frontend
-cd ../frontend
-npm install
+# Environment setup
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# Run application (two terminals)
+cd backend && npm run dev
+cd frontend && npm run dev
 ```
 
-### 2. Environment Setup
+**Frontend**: http://localhost:5173  
+**Backend**: http://localhost:5000
 
-**Backend** - Create `backend/.env`:
-```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/lostfound
-JWT_SECRET=your-secret-key-here
-JWT_REFRESH_SECRET=your-refresh-secret-here
+---
 
-Also see .env.example
-```
+## Table of Contents
 
-**Frontend** - Create `frontend/.env`:
-```env
-VITE_API_URL=http://localhost:5000/api
-```
+- [Quick Start](#quick-start)
+- [Overview](#overview)
+- [Application URLs](#application-urls)
+- [Running the Application](#running-the-application)
+  - [Backend](#backend)
+  - [Frontend](#frontend)
+- [Environment Variables](#environment-variables)
+  - [Backend Configuration](#backend-configuration)
+  - [Frontend Configuration](#frontend-configuration)
+- [Testing](#testing)
+  - [Backend Tests](#backend-tests)
+  - [Frontend Tests](#frontend-tests)
+  - [End-to-End Tests](#end-to-end-tests)
+- [Database Seeding](#database-seeding)
+- [API Overview](#api-overview)
+- [Development Guidelines](#development-guidelines)
+- [Important Notes](#important-notes)
 
-### 3. Run the App
+---
+
+## Overview
+
+Lost & Found is a full-stack web application built with React (frontend) and Node.js/Express (backend) that helps users report and find lost items on campus, with admin approval.
+
+---
+
+## Application URLs
+
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:5000
+
+---
+
+## Running the Application
+
+Start both servers in separate terminals.
+
+### Backend
 
 ```bash
-# Terminal 1 - Backend
 cd backend
 npm run dev
+```
 
-# Terminal 2 - Frontend
+The backend server runs on **http://localhost:5000**.
+
+### Frontend
+
+```bash
 cd frontend
 npm run dev
 ```
 
-### 4. Seed Admin User
+The frontend application is available at **http://localhost:5173**.
+
+---
+
+## Environment Variables
+
+### Backend Configuration
+
+Create a `.env` file in the `backend/` directory:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/lostfound
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+CLIENT_URL=http://localhost:5173
+SENDGRID_API_KEY=your_sendgrid_key
+FROM_EMAIL=no-reply@example.com
+```
+
+### Frontend Configuration
+
+Create a `.env` file in the `frontend/` directory:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+---
+
+## Testing
+
+### Backend Tests
+
+Run unit and integration tests using Vitest:
+
+```bash
+cd backend
+npm test
+npm run test:watch
+npm run test:coverage
+```
+
+### Frontend Tests
+
+Run component tests using Vitest and React Testing Library:
+
+```bash
+cd frontend
+npm test
+```
+
+### End-to-End Tests
+
+Run Playwright tests (ensure frontend and backend are running):
+
+```bash
+cd e2e
+npx playwright test
+npx playwright test --ui
+npx playwright show-report
+```
+
+---
+
+## Database Seeding
+
+Populate the database with initial data like that of an admin, user, and teacher:
 
 ```bash
 cd backend
 npx tsx src/scripts/seed-users.ts
 ```
 
-**Admin Login:**
+**Default admin credentials:**
 - Email: `admin@example.com`
 - Password: `Admin@123`
 
 ---
 
-## Testing All Features
+## API Overview
 
-### User Flows
+Common API endpoints:
+- `POST /api/v1/auth/register` - Register a new user
+- `POST /api/v1/auth/login` - User login
+- `GET /api/v1/items` - Get all items
+- `POST /api/v1/items` - Create a new item
+- `GET /api/v1/claims` - Get all claims
 
-| Feature | URL | How to Test |
-|---------|-----|-------------|
-| Landing Page | `localhost:5173/` | Just open it |
-| Student Register | `localhost:5173/register` | Fill form, submit |
-| Login | `localhost:5173/login` | Use registered credentials |
-| Visitor OTP | `localhost:5173/register-visitor` | Enter phone, check backend terminal for OTP |
-| Dashboard | `localhost:5173/dashboard` | Login first, see stats |
-| Report Item | `localhost:5173/report` | Select lost/found, fill details, pick zone |
-| Browse Items | `localhost:5173/inventory` | See all reported items |
-| Item Details | `localhost:5173/item/:id` | Click any item |
-| Submit Claim | `localhost:5173/claim/:itemId` | Click "Claim" on found item |
-| My Claims | `localhost:5173/my-claims` | See your submitted claims |
-| Notifications | `localhost:5173/notifications` | Check alerts |
-| Profile | `localhost:5173/profile` | Update your info |
+For full API definitions, see `backend/src/routes`.
 
-### Admin Flows
+---
 
-| Feature | URL | How to Test |
-|---------|-----|-------------|
-| Admin Dashboard | `localhost:5173/admin` | Login as admin |
-| Zone Management | `localhost:5173/admin/zones` | Create campus zones first! |
-| User Management | `localhost:5173/admin/roles` | Change user roles |
-| Claims Review | `localhost:5173/admin/claims` | Approve/reject claims |
-| AI Config | `localhost:5173/admin/ai-config` | Adjust matching settings |
+## Development Guidelines
 
-### Test Checklist
+- Create feature branches from `main` or `develop`
+- Use clear and meaningful commit messages
+- Ensure all tests pass before merging
+- Follow ESLint and Prettier rules
+- Use functional React components and hooks
+- Keep backend services free of HTTP-specific logic
 
-**First Time Setup:**
-1. [ ] Login as admin
-2. [ ] Go to Zone Management → Create at least 5 zones
-3. [ ] Logout
+---
 
-**Student Flow:**
-1. [ ] Register new student account
-2. [ ] Login
-3. [ ] Report a LOST item (select zone on map)
-4. [ ] Check "My Items" on dashboard shows it
-5. [ ] Browse Items → see your lost item listed
+## Important Notes
 
-**Faculty Flow:**
-1. [ ] Register → Admin upgrades to Faculty
-2. [ ] Login as Faculty
-3. [ ] Report a FOUND item (same category as lost item above)
-4. [ ] Browse Items → both items visible
+- MongoDB must be running locally or accessible via Atlas
+- Redis is required if Bull job queues are enabled
+- Environment variables should **never** be committed to version control
+- Always use `.env.example` files to document required environment variables
 
-**Claim Flow:**
-1. [ ] Login as student
-2. [ ] Go to Browse Items → Find the FOUND item
-3. [ ] Click item → Submit Claim with ownership proof
-4. [ ] Go to My Claims → See pending claim
-5. [ ] Login as Admin → Claims → Approve the claim
-6. [ ] Check item status changes to "resolved"
+---
 
-**Visitor Flow:**
-1. [ ] Go to `/register-visitor`
-2. [ ] Enter phone number
-3. [ ] Check backend terminal for OTP code
-4. [ ] Enter OTP → Auto-login to dashboard
-5. [ ] Can report items, browse, claim
+## Quick Start Checklist
+
+- [ ] Install dependencies: `npm install` in both `frontend/` and `backend/`
+- [ ] Set up MongoDB (local or Atlas)
+- [ ] Create `.env` files in both directories
+- [ ] Seed the database with initial data
+- [ ] Start backend server: `cd backend && npm run dev`
+- [ ] Start frontend server: `cd frontend && npm run dev`
+- [ ] Access the application at http://localhost:5173
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Backend won't start:**
+- Verify MongoDB is running
+- Check that all environment variables are set correctly
+- Ensure port 5000 is not already in use
+
+**Frontend won't connect to backend:**
+- Verify `VITE_API_URL` in frontend `.env` is correct
+- Check that the backend server is running
+- Clear browser cache and restart dev server
+
+**Database connection errors:**
+- Verify MongoDB connection string in `MONGODB_URI`
+- Check MongoDB service is running
+- Ensure database user has proper permissions
 
 ---
 
 ## Project Structure
 
 ```
-lost-and-found-system/
+lost-found/
 ├── backend/
 │   ├── src/
-│   │   ├── routes/v1/      # API endpoints
-│   │   ├── services/       # Business logic
-│   │   ├── models/         # MongoDB schemas
-│   │   ├── middleware/     # Auth, validation
-│   │   └── utils/          # Helpers
-│   └── package.json
+│   │   ├── routes/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── middleware/
+│   │   └── scripts/
+│   ├── tests/
+│   └── .env
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/          # React pages
-│   │   ├── components/     # Reusable components
-│   │   ├── context/        # Auth context
-│   │   └── services/       # API calls
-│   └── package.json
-└── README.md
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   └── .env
+└── e2e/
+    └── tests/
 ```
 
 ---
 
-## API Endpoints
+## Additional Resources
 
-### Auth
-- `POST /api/v1/auth/register` - Student registration
-- `POST /api/v1/auth/login` - Login
-- `POST /api/v1/auth/visitor/request-otp` - Request OTP
-- `POST /api/v1/auth/visitor/verify` - Verify OTP & login
-
-### Items
-- `GET /api/v1/items` - Browse all items
-- `GET /api/v1/items/user/my-items` - Get user's items
-- `POST /api/v1/items` - Report item
-- `GET /api/v1/items/:id` - Item details
-
-### Claims
-- `POST /api/v1/claims` - Submit claim
-- `GET /api/v1/claims/user/my-claims` - User's claims
-
-### Zones
-- `GET /api/v1/zones` - List zones
-- `POST /api/v1/zones` - Create zone (admin)
-- `PUT /api/v1/zones/:id` - Update zone (admin)
-- `DELETE /api/v1/zones/:id` - Delete zone (admin)
-
-### Admin
-- `GET /api/v1/admin/dashboard` - Stats
-- `GET /api/v1/admin/claims` - All claims
-- `PUT /api/v1/admin/claims/:id/decision` - Approve/reject
-
----
-
-## Troubleshooting
-
-**"Please select a location" but no zones showing?**
-→ Admin needs to create zones first at `/admin/zones`
-
-**OTP not working?**
-→ Check backend terminal - OTP is logged there
-
-**"Reported By: Anonymous" even though not anonymous?**
-→ Make sure you pulled latest backend changes
-
-**My Items showing empty?**
-→ You need to report an item first, it shows YOUR items only
-
----
-
-## Tech Stack
-
-- **Frontend:** React, Vite, TailwindCSS, Lucide Icons
-- **Backend:** Node.js, Express, TypeScript
-- **Database:** MongoDB with Mongoose
-- **Auth:** JWT with refresh tokens
+- [Express.js Documentation](https://expressjs.com/)
+- [React Documentation](https://react.dev/)
+- [Vite Documentation](https://vitejs.dev/)
+- [Vitest Documentation](https://vitest.dev/)
+- [Playwright Documentation](https://playwright.dev/)
+- [MongoDB Documentation](https://docs.mongodb.com/)
 
 ---

@@ -102,24 +102,32 @@ const ReportItem = () => {
             return;
         }
 
-        files.slice(0, maxFiles).forEach(file => {
+        const validFiles = files.slice(0, maxFiles).filter(file => {
             if (!file.type.startsWith('image/')) {
                 setError('Please upload only image files');
-                return;
+                return false;
             }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setImagePreviews(prev => [...prev, e.target.result]);
-            };
-            reader.readAsDataURL(file);
-
-            setFormData(prev => ({
-                ...prev,
-                images: [...prev.images, file]
-            }));
+            return true;
         });
 
+        if (validFiles.length === 0) return;
+
+        // Read previews
+        validFiles.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                setImagePreviews(prev => [...prev, ev.target.result]);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Add all files in a single state update
+        setFormData(prev => ({
+            ...prev,
+            images: [...prev.images, ...validFiles]
+        }));
+
+        console.log('Added images:', validFiles.length, 'Total will be:', formData.images.length + validFiles.length);
         setError('');
     };
 
@@ -184,21 +192,67 @@ const ReportItem = () => {
         setError('');
 
         try {
-            const submitData = new FormData();
-            submitData.append('type', formData.type);
-            submitData.append('title', formData.title);
-            submitData.append('description', formData.description);
-            submitData.append('category', formData.category);
-            submitData.append('date', formData.date);
-            submitData.append('location', JSON.stringify(formData.location));
+            // Find the selected zone to get its ID
+            const selectedZone = zones.find(z => z.zoneName === formData.location.zone);
+            if (!selectedZone) {
+                setError('Please select a valid zone');
+                setLoading(false);
+                return;
+            }
 
-            formData.images.forEach(image => {
-                submitData.append('images', image);
-            });
+            // Upload images if any
+            const uploadedImageUrls = [];
+            console.log('Images to upload:', formData.images.length);
+            for (const imageFile of formData.images) {
+                try {
+                    console.log('Uploading image:', imageFile.name, imageFile.size, 'bytes');
+                    const imgFormData = new FormData();
+                    imgFormData.append('image', imageFile);
+                    const uploadRes = await api.post('/v1/uploads/image', imgFormData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    console.log('Upload success:', uploadRes.data.image.url);
+                    uploadedImageUrls.push(uploadRes.data.image.url);
+                } catch (uploadErr) {
+                    console.error('Image upload failed:', uploadErr);
+                    console.error('Upload error details:', uploadErr.response?.data);
+                    // Continue with other images
+                }
+            }
+            console.log('Total uploaded URLs:', uploadedImageUrls.length, uploadedImageUrls);
 
-            await api.post('/v1/items', submitData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            // Build the payload in the format the backend expects
+            const payload = {
+                submissionType: formData.type, // 'lost' or 'found'
+                itemAttributes: {
+                    category: formData.category,
+                    description: formData.description || `${formData.title} - ${formData.category} item`,
+                    color: '',
+                    material: '',
+                    size: ''
+                },
+                location: {
+                    type: 'Point',
+                    coordinates: selectedZone.geoBoundary?.coordinates?.[0]?.[0] || [76.925, 10.903],
+                    zoneId: selectedZone._id
+                },
+                timeMetadata: {
+                    lostOrFoundAt: new Date(formData.date).toISOString(),
+                    reportedAt: new Date().toISOString()
+                },
+                isAnonymous: false,
+                images: uploadedImageUrls
+            };
+
+            // Ensure description meets minimum length requirement (10 chars)
+            if (payload.itemAttributes.description.length < 10) {
+                payload.itemAttributes.description = `${formData.title || 'Item'} - ${formData.category} reported on campus`;
+            }
+
+            console.log('Submitting payload:', JSON.stringify(payload, null, 2));
+
+            // Submit the item as JSON (not FormData)
+            await api.post('/v1/items', payload);
 
             setSuccess(true);
 
@@ -215,7 +269,14 @@ const ReportItem = () => {
             });
 
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to report item');
+            console.error('Submit error:', err.response?.data || err);
+            // Show detailed validation errors if available
+            const details = err.response?.data?.details;
+            if (details && Array.isArray(details)) {
+                setError(details.join(', '));
+            } else {
+                setError(err.response?.data?.error || 'Failed to report item');
+            }
             gsap.to('.form-container', {
                 x: [-15, 15, -10, 10, -5, 5, 0],
                 duration: 0.6,
@@ -291,10 +352,10 @@ const ReportItem = () => {
                             <div key={s.num} className="flex items-center gap-3">
                                 <div
                                     className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-500 ${step > s.num
-                                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                                            : step === s.num
-                                                ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/30'
-                                                : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                                        : step === s.num
+                                            ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/30'
+                                            : 'bg-slate-800 text-slate-500 border border-slate-700'
                                         }`}
                                 >
                                     {step > s.num ? <CheckCircle size={20} /> : s.num}
@@ -346,8 +407,8 @@ const ReportItem = () => {
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, type: type.id })}
                                                     className={`form-field p-8 rounded-2xl border-2 text-left transition-all group ${formData.type === type.id
-                                                            ? `border-transparent bg-gradient-to-br ${type.color}`
-                                                            : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
+                                                        ? `border-transparent bg-gradient-to-br ${type.color}`
+                                                        : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
                                                         }`}
                                                 >
                                                     <span className="text-5xl mb-4 block">{type.icon}</span>
@@ -390,8 +451,8 @@ const ReportItem = () => {
                                                         type="button"
                                                         onClick={() => setFormData({ ...formData, category: cat })}
                                                         className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${formData.category === cat
-                                                                ? 'bg-primary-600 text-white'
-                                                                : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-600'
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:border-slate-600'
                                                             }`}
                                                     >
                                                         {cat}
@@ -432,7 +493,7 @@ const ReportItem = () => {
                                             >
                                                 <option value="">Select a zone</option>
                                                 {zones.map(zone => (
-                                                    <option key={zone._id} value={zone.name}>{zone.name}</option>
+                                                    <option key={zone._id} value={zone.zoneName}>{zone.zoneName}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -484,6 +545,11 @@ const ReportItem = () => {
 
                                         <p className="text-slate-400 mb-6">
                                             Upload up to 5 images to help identify the item. Clear photos increase the chance of recovery!
+                                            {formData.images.length > 0 && (
+                                                <span className="ml-2 text-emerald-400 font-semibold">
+                                                    ({formData.images.length} image{formData.images.length > 1 ? 's' : ''} selected)
+                                                </span>
+                                            )}
                                         </p>
 
                                         {/* Upload Area */}

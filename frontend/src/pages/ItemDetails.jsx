@@ -27,7 +27,12 @@ import {
     Flag,
     Sparkles,
     Eye,
-    Zap
+    Zap,
+    Loader2,
+    Send,
+    Camera,
+    X,
+    ImageIcon
 } from 'lucide-react';
 import {
     MorphingBlob,
@@ -50,9 +55,16 @@ const ItemDetails = () => {
     const [loading, setLoading] = useState(true);
     const [currentImage, setCurrentImage] = useState(0);
     const [error, setError] = useState('');
+    const [claimReason, setClaimReason] = useState('');
+    const [claimImages, setClaimImages] = useState([]);
+    const [claimImagePreviews, setClaimImagePreviews] = useState([]);
+    const [claimSubmitting, setClaimSubmitting] = useState(false);
+    const [claimSuccess, setClaimSuccess] = useState(false);
+    const [claimError, setClaimError] = useState('');
 
     const containerRef = useRef(null);
     const imageRef = useRef(null);
+    const claimFileInputRef = useRef(null);
 
     // Fetch item details
     useEffect(() => {
@@ -140,9 +152,62 @@ const ItemDetails = () => {
         }
     };
 
+    // Handle claim image selection
+    const handleClaimImageChange = (e) => {
+        const files = Array.from(e.target.files);
+        if (claimImages.length + files.length > 3) {
+            setClaimError('Maximum 3 images allowed');
+            return;
+        }
+        setClaimError('');
+        setClaimImages(prev => [...prev, ...files]);
+        const newPreviews = files.map(file => URL.createObjectURL(file));
+        setClaimImagePreviews(prev => [...prev, ...newPreviews]);
+    };
+
+    const removeClaimImage = (index) => {
+        URL.revokeObjectURL(claimImagePreviews[index]);
+        setClaimImages(prev => prev.filter((_, i) => i !== index));
+        setClaimImagePreviews(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Raise a claim directly
+    const handleRaiseClaim = async () => {
+        if (!claimReason.trim()) {
+            setClaimError('Please provide a reason for your claim.');
+            return;
+        }
+        setClaimSubmitting(true);
+        setClaimError('');
+        try {
+            // Upload images first if any
+            const imageUrls = [];
+            for (const file of claimImages) {
+                const formData = new FormData();
+                formData.append('image', file);
+                const uploadRes = await api.post('/v1/uploads/image', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                imageUrls.push(uploadRes.data.image.url);
+            }
+
+            const proofs = [claimReason.trim(), ...imageUrls];
+            await api.post('/v1/claims', {
+                itemId: id,
+                ownershipProofs: proofs
+            });
+            setClaimSuccess(true);
+        } catch (err) {
+            setClaimError(err.response?.data?.message || 'Failed to submit claim. Please try again.');
+        } finally {
+            setClaimSubmitting(false);
+        }
+    };
+
     const getStatusColor = (status) => {
         switch (status) {
-            case 'reported': return { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' };
+            case 'reported':
+            case 'submitted': return { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' };
             case 'matched': return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' };
             case 'claimed': return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' };
             case 'resolved': return { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' };
@@ -216,7 +281,7 @@ const ItemDetails = () => {
                                             <img
                                                 ref={imageRef}
                                                 src={item.images[currentImage]}
-                                                alt={item.title}
+                                                alt={item.itemAttributes?.category || 'Item'}
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
@@ -226,11 +291,11 @@ const ItemDetails = () => {
                                         )}
 
                                         {/* Type Badge */}
-                                        <div className={`absolute top-6 left-6 px-5 py-2 rounded-full text-sm font-bold ${item.type === 'lost'
-                                                ? 'bg-red-500 text-white'
-                                                : 'bg-emerald-500 text-white'
+                                        <div className={`absolute top-6 left-6 px-5 py-2 rounded-full text-sm font-bold ${item.submissionType === 'lost'
+                                            ? 'bg-red-500 text-white'
+                                            : 'bg-emerald-500 text-white'
                                             }`}>
-                                            {item.type?.toUpperCase()}
+                                            {item.submissionType?.toUpperCase()}
                                         </div>
 
                                         {/* Status Badge */}
@@ -261,8 +326,8 @@ const ItemDetails = () => {
                                                             key={i}
                                                             onClick={() => setCurrentImage(i)}
                                                             className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentImage
-                                                                    ? 'bg-white w-8'
-                                                                    : 'bg-white/40 hover:bg-white/60'
+                                                                ? 'bg-white w-8'
+                                                                : 'bg-white/40 hover:bg-white/60'
                                                                 }`}
                                                         />
                                                     ))}
@@ -281,8 +346,8 @@ const ItemDetails = () => {
                                             key={i}
                                             onClick={() => setCurrentImage(i)}
                                             className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === currentImage
-                                                    ? 'border-primary-500 ring-2 ring-primary-500/30'
-                                                    : 'border-slate-700 hover:border-slate-500'
+                                                ? 'border-primary-500 ring-2 ring-primary-500/30'
+                                                : 'border-slate-700 hover:border-slate-500'
                                                 }`}
                                         >
                                             <img src={img} alt="" className="w-full h-full object-cover" />
@@ -295,11 +360,11 @@ const ItemDetails = () => {
                         {/* Content Section */}
                         <div className="item-content">
                             <h1 className="text-4xl font-black text-white mb-4">
-                                {item.title}
+                                {item.itemAttributes?.category || 'Unknown Item'}
                             </h1>
 
                             <p className="text-lg text-slate-400 mb-8 leading-relaxed">
-                                {item.description || 'No description provided for this item.'}
+                                {item.itemAttributes?.description || 'No description provided for this item.'}
                             </p>
 
                             {/* Details Grid */}
@@ -310,24 +375,24 @@ const ItemDetails = () => {
                                             <MapPin size={20} className="text-cyan-400" />
                                             <span>Location</span>
                                         </div>
-                                        <span className="font-semibold text-white">{item.location?.zone || 'Not specified'}</span>
+                                        <span className="font-semibold text-white">{item.location?.zoneId?.zoneName || 'Not specified'}</span>
                                     </div>
 
                                     <div className="detail-row flex items-center justify-between p-4">
                                         <div className="flex items-center gap-3 text-slate-400">
                                             <Calendar size={20} className="text-violet-400" />
-                                            <span>Date {item.type === 'lost' ? 'Lost' : 'Found'}</span>
+                                            <span>Date {item.submissionType === 'lost' ? 'Lost' : 'Found'}</span>
                                         </div>
-                                        <span className="font-semibold text-white">{new Date(item.date || item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                        <span className="font-semibold text-white">{new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                                     </div>
 
-                                    {item.category && (
+                                    {item.itemAttributes?.category && (
                                         <div className="detail-row flex items-center justify-between p-4">
                                             <div className="flex items-center gap-3 text-slate-400">
                                                 <Tag size={20} className="text-amber-400" />
                                                 <span>Category</span>
                                             </div>
-                                            <span className="font-semibold text-white">{item.category}</span>
+                                            <span className="font-semibold text-white">{item.itemAttributes.category}</span>
                                         </div>
                                     )}
 
@@ -349,30 +414,116 @@ const ItemDetails = () => {
                                 </div>
                             </GradientBorderCard>
 
-                            {/* Action Buttons */}
+                            {/* Raise a Claim */}
                             <div className="space-y-4">
-                                {item.status === 'reported' && user && item.reportedBy !== user._id && (
-                                    <ParticleExplosion className="w-full">
-                                        <Link to={`/claims/submit/${item._id}`} className="w-full block">
-                                            <ElasticButton className="action-btn w-full py-5 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 group shadow-lg shadow-primary-500/25">
-                                                <FileText size={22} />
-                                                <span>{item.type === 'lost' ? 'I Found This Item' : 'This is My Item'}</span>
-                                                <Zap size={18} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                {(item.status === 'reported' || item.status === 'submitted') && user && !claimSuccess && (
+                                    <GradientBorderCard className="">
+                                        <div className="p-5 space-y-4">
+                                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                <FileText size={20} className="text-primary-400" />
+                                                {item.submissionType === 'lost' ? 'I Found This Item' : 'Claim This Item'}
+                                            </h3>
+                                            <p className="text-slate-400 text-sm">
+                                                {item.submissionType === 'lost'
+                                                    ? 'If you found this item, raise a claim with a brief description of how you can identify it.'
+                                                    : 'If this is your item, raise a claim with proof of ownership (e.g., unique marks, serial number, purchase details).'}
+                                            </p>
+                                            <textarea
+                                                value={claimReason}
+                                                onChange={(e) => setClaimReason(e.target.value)}
+                                                placeholder="Describe your proof of ownership or how you can identify this item..."
+                                                rows={3}
+                                                className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all resize-none"
+                                            />
+
+                                            {/* Image Upload */}
+                                            <div>
+                                                <label className="text-sm text-slate-400 mb-2 block">Upload proof images (optional, max 3)</label>
+                                                <input
+                                                    ref={claimFileInputRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    multiple
+                                                    onChange={handleClaimImageChange}
+                                                    className="hidden"
+                                                />
+                                                <div className="flex flex-wrap gap-3">
+                                                    {claimImagePreviews.map((preview, i) => (
+                                                        <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-700 group">
+                                                            <img src={preview} alt="Proof" className="w-full h-full object-cover" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeClaimImage(i)}
+                                                                className="absolute top-1 right-1 p-0.5 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {claimImages.length < 3 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => claimFileInputRef.current?.click()}
+                                                            className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-700 hover:border-primary-500 flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-primary-400 transition-colors"
+                                                        >
+                                                            <Camera size={20} />
+                                                            <span className="text-[10px]">Add</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {claimError && (
+                                                <div className="flex items-center gap-2 text-red-400 text-sm">
+                                                    <AlertTriangle size={16} />
+                                                    {claimError}
+                                                </div>
+                                            )}
+                                            <ElasticButton
+                                                onClick={handleRaiseClaim}
+                                                disabled={claimSubmitting}
+                                                className="action-btn w-full py-4 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {claimSubmitting ? (
+                                                    <Loader2 size={22} className="animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Send size={20} />
+                                                        <span>Raise Claim</span>
+                                                    </>
+                                                )}
                                             </ElasticButton>
-                                        </Link>
-                                    </ParticleExplosion>
+                                        </div>
+                                    </GradientBorderCard>
                                 )}
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <RippleButton className="action-btn py-4 bg-slate-800/50 border border-slate-700 rounded-xl flex items-center justify-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all">
-                                        <Share2 size={18} />
-                                        Share
-                                    </RippleButton>
-                                    <RippleButton className="action-btn py-4 bg-slate-800/50 border border-slate-700 rounded-xl flex items-center justify-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all">
-                                        <Flag size={18} />
-                                        Report
-                                    </RippleButton>
-                                </div>
+                                {claimSuccess && (
+                                    <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <CheckCircle size={24} className="text-emerald-400" />
+                                            <span className="font-bold text-emerald-400 text-lg">Claim Submitted!</span>
+                                        </div>
+                                        <p className="text-slate-400 text-sm mb-4">
+                                            Your claim has been submitted with <span className="text-white font-semibold">pending</span> status. An admin will review it shortly.
+                                        </p>
+                                        <Link to="/my-claims">
+                                            <ElasticButton className="px-6 py-3 bg-emerald-600/20 border border-emerald-500/30 rounded-xl text-emerald-400 font-semibold hover:bg-emerald-600/30 transition-all">
+                                                View My Claims
+                                            </ElasticButton>
+                                        </Link>
+                                    </div>
+                                )}
+
+                                {!user && (item.status === 'reported' || item.status === 'submitted') && (
+                                    <div className="p-5 bg-slate-800/40 border border-slate-700/50 rounded-2xl text-center">
+                                        <p className="text-slate-400 mb-3">Sign in to raise a claim for this item</p>
+                                        <Link to="/login">
+                                            <ElasticButton className="px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl text-white font-bold">
+                                                Sign In
+                                            </ElasticButton>
+                                        </Link>
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* AI Match Indicator */}

@@ -21,9 +21,7 @@ import {
     X,
     Grid,
     List,
-    ChevronDown,
-    Sparkles,
-    SlidersHorizontal
+    Sparkles
 } from 'lucide-react';
 import {
     MorphingBlob,
@@ -41,14 +39,14 @@ const ItemInventory = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
     const [search, setSearch] = useState(searchParams.get('search') || '');
     const [filters, setFilters] = useState({
         type: searchParams.get('type') || '',
         category: searchParams.get('category') || '',
-        status: searchParams.get('status') || 'reported'
+        status: searchParams.get('status') || '' // Empty = show all approved items
     });
     const [viewMode, setViewMode] = useState('grid');
-    const [showFilters, setShowFilters] = useState(false);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
 
@@ -66,8 +64,8 @@ const ItemInventory = () => {
             const params = new URLSearchParams({
                 page: reset ? 1 : page,
                 limit: 12,
-                ...(search && { search }),
-                ...(filters.type && { type: filters.type }),
+                ...(search && { q: search }),
+                ...(filters.type && { submissionType: filters.type }),
                 ...(filters.category && { category: filters.category }),
                 ...(filters.status && { status: filters.status })
             });
@@ -146,8 +144,13 @@ const ItemInventory = () => {
 
     const handleSearch = (e) => {
         e.preventDefault();
+        setSearch(searchInput);
         const newParams = new URLSearchParams(searchParams);
-        newParams.set('search', search);
+        if (searchInput) {
+            newParams.set('search', searchInput);
+        } else {
+            newParams.delete('search');
+        }
         setSearchParams(newParams);
     };
 
@@ -163,7 +166,8 @@ const ItemInventory = () => {
     };
 
     const clearFilters = () => {
-        setFilters({ type: '', category: '', status: 'reported' });
+        setFilters({ type: '', category: '', status: '' });
+        setSearchInput('');
         setSearch('');
         setSearchParams({});
     };
@@ -197,7 +201,7 @@ const ItemInventory = () => {
 
             <Sidebar />
 
-            <main className="pl-4 md:pl-8 pr-4 md:pr-8 py-8 relative z-10">
+            <main className="ml-4 pl-8 md:pl-12 pr-4 md:pr-8 py-8 relative z-10">
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="inventory-header mb-8">
@@ -213,18 +217,18 @@ const ItemInventory = () => {
 
                     {/* Search & Filters */}
                     <div className="search-container mb-8">
-                        <form onSubmit={handleSearch} className="relative mb-6">
-                            <Search size={22} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <form onSubmit={handleSearch} className="flex items-center gap-0 bg-slate-900/60 border border-slate-700/50 rounded-2xl backdrop-blur-xl overflow-hidden focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 transition-all mb-6">
+                            <Search size={22} className="ml-6 text-slate-400 flex-shrink-0" />
                             <input
                                 type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
                                 placeholder="Search items by name, description, or location..."
-                                className="w-full pl-16 pr-32 py-5 bg-slate-900/60 border border-slate-700/50 rounded-2xl text-lg text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all backdrop-blur-xl placeholder:text-slate-500"
+                                className="flex-1 px-4 py-5 bg-transparent text-lg text-white focus:outline-none placeholder:text-slate-500"
                             />
                             <RippleButton
                                 type="submit"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold text-white"
+                                className="px-8 py-3 mr-2 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold text-white flex-shrink-0"
                             >
                                 Search
                             </RippleButton>
@@ -238,8 +242,8 @@ const ItemInventory = () => {
                                     key={type.id}
                                     onClick={() => handleFilterChange('type', type.id)}
                                     className={`filter-pill px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${filters.type === type.id
-                                            ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-lg shadow-primary-500/25'
-                                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                        ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-lg shadow-primary-500/25'
+                                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                                         }`}
                                 >
                                     {type.label}
@@ -248,43 +252,28 @@ const ItemInventory = () => {
 
                             <div className="w-px h-8 bg-slate-700 mx-2" />
 
-                            {/* Category Dropdown */}
-                            <div className="filter-pill relative">
+                            {/* Category Pills */}
+                            <button
+                                onClick={() => handleFilterChange('category', '')}
+                                className={`filter-pill px-4 py-2 rounded-full text-sm font-semibold transition-all ${!filters.category
+                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/25'
+                                    : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                    }`}
+                            >
+                                All
+                            </button>
+                            {categories.map((cat) => (
                                 <button
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${filters.category
-                                            ? 'bg-purple-600 text-white'
-                                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                    key={cat}
+                                    onClick={() => handleFilterChange('category', cat)}
+                                    className={`filter-pill px-4 py-2 rounded-full text-sm font-semibold transition-all ${filters.category === cat
+                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/25'
+                                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                                         }`}
                                 >
-                                    <SlidersHorizontal size={16} />
-                                    {filters.category || 'Category'}
-                                    <ChevronDown size={16} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                                    {cat}
                                 </button>
-
-                                {showFilters && (
-                                    <div className="absolute top-full left-0 mt-2 w-56 py-2 bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 backdrop-blur-xl z-50">
-                                        <button
-                                            onClick={() => { handleFilterChange('category', ''); setShowFilters(false); }}
-                                            className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors"
-                                        >
-                                            All Categories
-                                        </button>
-                                        {categories.map((cat) => (
-                                            <button
-                                                key={cat}
-                                                onClick={() => { handleFilterChange('category', cat); setShowFilters(false); }}
-                                                className={`w-full px-4 py-2.5 text-left transition-colors ${filters.category === cat
-                                                        ? 'bg-primary-500/20 text-primary-400'
-                                                        : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
-                                                    }`}
-                                            >
-                                                {cat}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                            ))}
 
                             {/* Clear Filters */}
                             {activeFiltersCount > 0 && (
@@ -323,7 +312,7 @@ const ItemInventory = () => {
                                 style={{ perspective: 1000 }}
                             >
                                 {items.map((item, i) => (
-                                    <Link key={item._id} to={`/items/${item._id}`}>
+                                    <Link key={item._id} to={`/item/${item._id}`}>
                                         <TiltCard className="item-card h-full" intensity={0.3}>
                                             <HolographicCard className="h-full">
                                                 <div className={`bg-slate-900/60 border border-slate-700/50 backdrop-blur-xl rounded-2xl overflow-hidden h-full group ${viewMode === 'list' ? 'flex' : ''}`}>
@@ -332,7 +321,7 @@ const ItemInventory = () => {
                                                         {item.images?.[0] ? (
                                                             <img
                                                                 src={item.images[0]}
-                                                                alt={item.title}
+                                                                alt={item.itemAttributes?.category}
                                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                             />
                                                         ) : (
@@ -342,11 +331,11 @@ const ItemInventory = () => {
                                                         )}
 
                                                         {/* Type Badge */}
-                                                        <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold ${item.type === 'lost'
-                                                                ? 'bg-red-500/90 text-white'
-                                                                : 'bg-emerald-500/90 text-white'
+                                                        <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold ${item.submissionType === 'lost'
+                                                            ? 'bg-red-500/90 text-white'
+                                                            : 'bg-emerald-500/90 text-white'
                                                             }`}>
-                                                            {item.type?.toUpperCase()}
+                                                            {item.submissionType?.toUpperCase()}
                                                         </div>
 
                                                         {/* Hover Overlay */}
@@ -361,26 +350,26 @@ const ItemInventory = () => {
                                                     {/* Content */}
                                                     <div className="p-5">
                                                         <h3 className="font-bold text-white text-lg mb-2 line-clamp-1 group-hover:text-primary-400 transition-colors">
-                                                            {item.title}
+                                                            {item.itemAttributes?.category || 'Unknown Item'}
                                                         </h3>
 
                                                         <p className="text-slate-400 text-sm mb-4 line-clamp-2">
-                                                            {item.description || 'No description provided'}
+                                                            {item.itemAttributes?.description || 'No description provided'}
                                                         </p>
 
                                                         <div className="space-y-2">
                                                             <div className="flex items-center gap-2 text-sm text-slate-400">
                                                                 <MapPin size={14} className="text-cyan-400" />
-                                                                <span className="truncate">{item.location?.zone || 'Unknown location'}</span>
+                                                                <span className="truncate">{item.location?.zoneId?.zoneName || 'Unknown location'}</span>
                                                             </div>
                                                             <div className="flex items-center gap-2 text-sm text-slate-400">
                                                                 <Calendar size={14} className="text-violet-400" />
-                                                                <span>{new Date(item.date || item.createdAt).toLocaleDateString()}</span>
+                                                                <span>{new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString()}</span>
                                                             </div>
-                                                            {item.category && (
+                                                            {item.itemAttributes?.category && (
                                                                 <div className="flex items-center gap-2 text-sm text-slate-400">
                                                                     <Tag size={14} className="text-amber-400" />
-                                                                    <span>{item.category}</span>
+                                                                    <span>{item.itemAttributes.category}</span>
                                                                 </div>
                                                             )}
                                                         </div>

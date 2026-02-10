@@ -45,7 +45,10 @@ const itemSchema = new Schema({
   images: [{ type: String }],
   location: { type: itemLocationSchema, required: true },
   timeMetadata: { type: itemTimeMetadataSchema, required: true },
-  status: { type: String, required: true, enum: ['draft', 'submitted', 'matched', 'resolved', 'archived'] },
+  status: { type: String, required: true, enum: ['draft', 'pending', 'submitted', 'matched', 'resolved', 'archived', 'rejected'] },
+  adminNotes: { type: String },
+  reviewedBy: { type: Types.ObjectId, ref: 'users' },
+  reviewedAt: { type: Date },
   aiMetadata: aiMetadataSchema,
 }, { timestamps: true })
 
