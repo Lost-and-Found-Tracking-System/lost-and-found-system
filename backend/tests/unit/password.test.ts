@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR PASSWORD UTILITIES
- * Tests password hashing and verification with Argon2
+ * @module tests/unit/password
+ * @description Unit tests for password utilities — hashing and verification with Argon2.
  */
 
 import { describe, it, expect } from 'vitest'

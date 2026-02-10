@@ -1,18 +1,6 @@
 /**
- * API INTEGRATION TESTS
- * 
- * This file demonstrates how to test Express API endpoints.
- * Uses 'supertest' to make HTTP requests to your Express app.
- * 
- * KEY CONCEPTS:
- * - supertest: Makes HTTP requests without starting a real server
- * - request(app): Creates a test client for your Express app
- * - .get(), .post(), .put(), .delete(): HTTP methods
- * - .expect(): Check status codes and response data
- * 
- * RUN THIS TEST:
- *   npm run test
- *   npm run test -- api  (run only this file)
+ * @module tests/integration/api
+ * @description API integration tests — Express endpoint testing with supertest.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'

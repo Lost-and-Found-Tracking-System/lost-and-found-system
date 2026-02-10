@@ -1,4 +1,7 @@
-// Test setup file - runs before each test file
+/**
+ * @module tests/setup
+ * @description Vitest global setup — mocks env vars and silences console output during tests.
+ */
 import { beforeAll, afterAll, vi } from 'vitest'
 
 // Mock environment variables for testing

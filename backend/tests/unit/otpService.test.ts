@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR OTP SERVICE
- * Tests OTP generation function
+ * @module tests/unit/otpService
+ * @description Unit tests for OTP service — OTP generation and validation constants.
  */
 
 import { describe, it, expect } from 'vitest'

@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR LETTER SERVICE
- * Tests PDF letter generation types and structures
+ * @module tests/unit/letterService
+ * @description Unit tests for letter service — PDF letter generation types and structures.
  */
 
 import { describe, it, expect } from 'vitest'

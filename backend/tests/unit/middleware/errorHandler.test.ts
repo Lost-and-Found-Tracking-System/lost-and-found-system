@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR ERROR HANDLER MIDDLEWARE LOGIC
- * Tests error handling patterns
+ * @module tests/unit/middleware/errorHandler
+ * @description Unit tests for error handler middleware — status codes, response formats, and defaults.
  */
 
 import { describe, it, expect } from 'vitest'

@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR ROLE AUTH MIDDLEWARE LOGIC
- * Tests role-based access control patterns
+ * @module tests/unit/middleware/roleAuth
+ * @description Unit tests for role auth middleware — RBAC patterns, admin checks, and owner access.
  */
 
 import { describe, it, expect } from 'vitest'

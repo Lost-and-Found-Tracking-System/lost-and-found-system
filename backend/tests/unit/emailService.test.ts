@@ -1,8 +1,6 @@
 /**
- * UNIT TESTS FOR EMAIL SERVICE
- * Tests email sending functions (mocked in dev mode)
- * 
- * NOTE: These tests run in dev mode where emails are logged, not sent
+ * @module tests/unit/emailService
+ * @description Unit tests for email service — SendGrid mocking and dev-mode email logging.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'

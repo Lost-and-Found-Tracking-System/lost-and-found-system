@@ -1,6 +1,6 @@
 /**
- * DATABASE INTEGRATION TESTS FOR ITEM SERVICE
- * Tests item submission, search, and retrieval
+ * @module tests/integration/itemService
+ * @description Integration tests for item service — submission, search, and retrieval.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
@@ -78,7 +78,7 @@ describe('Item Service - Submit Item', () => {
         expect(item).toBeDefined()
         expect(item.trackingId).toMatch(/^ITEM-[A-F0-9]{16}$/)
         expect(item.submissionType).toBe('lost')
-        expect(item.status).toBe('submitted')
+        expect(item.status).toBe('pending')
         expect(item.itemAttributes.category).toBe('Electronics')
     })
 
@@ -176,44 +176,49 @@ describe('Item Service - Get Items by Type', () => {
     beforeEach(async () => {
         await ItemModel.deleteMany({})
 
-        // Create test items for each test
+        // Create items directly with 'submitted' status (simulating admin-approved items)
+        // since submitItem() now sets status to 'pending' and getItemsByType filters for 'submitted'|'matched'
         for (let i = 0; i < 5; i++) {
-            await submitItem({
-                submissionType: 'lost' as const,
+            await ItemModel.create({
+                trackingId: `ITEM-LOST${i.toString().padStart(14, '0')}`,
+                submissionType: 'lost',
                 itemAttributes: {
                     category: 'Electronics',
                     description: `Lost item ${i}`,
                 },
                 location: {
-                    type: 'Point' as const,
-                    coordinates: [80.2, 13.1] as [number, number],
-                    zoneId: new mongoose.Types.ObjectId().toString(),
+                    type: 'Point',
+                    coordinates: [80.2, 13.1],
+                    zoneId: new mongoose.Types.ObjectId(),
                 },
                 timeMetadata: {
                     lostOrFoundAt: new Date(),
                     reportedAt: new Date(),
                 },
                 isAnonymous: false,
+                status: 'submitted',
             })
         }
 
         for (let i = 0; i < 3; i++) {
-            await submitItem({
-                submissionType: 'found' as const,
+            await ItemModel.create({
+                trackingId: `ITEM-FOUND${i.toString().padStart(13, '0')}`,
+                submissionType: 'found',
                 itemAttributes: {
                     category: 'Documents',
                     description: `Found item ${i}`,
                 },
                 location: {
-                    type: 'Point' as const,
-                    coordinates: [80.3, 13.2] as [number, number],
-                    zoneId: new mongoose.Types.ObjectId().toString(),
+                    type: 'Point',
+                    coordinates: [80.3, 13.2],
+                    zoneId: new mongoose.Types.ObjectId(),
                 },
                 timeMetadata: {
                     lostOrFoundAt: new Date(),
                     reportedAt: new Date(),
                 },
                 isAnonymous: false,
+                status: 'submitted',
             })
         }
     })
@@ -244,41 +249,46 @@ describe('Item Service - Search Items', () => {
     beforeEach(async () => {
         await ItemModel.deleteMany({})
 
-        // Create searchable items
-        await submitItem({
-            submissionType: 'lost' as const,
+        // Create items directly with 'submitted' status for search testing
+        // since searchItems() filters for 'submitted'|'matched' status
+        await ItemModel.create({
+            trackingId: 'ITEM-SEARCH00000001',
+            submissionType: 'lost',
             itemAttributes: {
                 category: 'Electronics',
                 description: 'Black iPhone with case',
             },
             location: {
-                type: 'Point' as const,
-                coordinates: [80.2, 13.1] as [number, number],
-                zoneId: new mongoose.Types.ObjectId().toString(),
+                type: 'Point',
+                coordinates: [80.2, 13.1],
+                zoneId: new mongoose.Types.ObjectId(),
             },
             timeMetadata: {
                 lostOrFoundAt: new Date(),
                 reportedAt: new Date(),
             },
             isAnonymous: false,
+            status: 'submitted',
         })
 
-        await submitItem({
-            submissionType: 'found' as const,
+        await ItemModel.create({
+            trackingId: 'ITEM-SEARCH00000002',
+            submissionType: 'found',
             itemAttributes: {
                 category: 'Electronics',
                 description: 'White Samsung phone',
             },
             location: {
-                type: 'Point' as const,
-                coordinates: [80.3, 13.2] as [number, number],
-                zoneId: new mongoose.Types.ObjectId().toString(),
+                type: 'Point',
+                coordinates: [80.3, 13.2],
+                zoneId: new mongoose.Types.ObjectId(),
             },
             timeMetadata: {
                 lostOrFoundAt: new Date(),
                 reportedAt: new Date(),
             },
             isAnonymous: false,
+            status: 'submitted',
         })
     })
 

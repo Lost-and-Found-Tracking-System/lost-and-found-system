@@ -1,16 +1,6 @@
 /**
- * UNIT TESTS FOR SMS SERVICE
- * 
- * This file demonstrates how to write unit tests for utility functions.
- * 
- * KEY CONCEPTS:
- * - describe(): Groups related tests together
- * - it() or test(): Defines a single test case
- * - expect(): Makes assertions about the result
- * 
- * RUN THIS TEST:
- *   npm run test
- *   npm run test -- smsService  (run only this file)
+ * @module tests/unit/smsService
+ * @description Unit tests for SMS service — phone validation, normalization, and formatting.
  */
 
 import { describe, it, expect } from 'vitest'

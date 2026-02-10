@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR JWT UTILITIES
- * Tests token signing and verification functions
+ * @module tests/unit/jwt
+ * @description Unit tests for JWT utilities — token signing and verification.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'

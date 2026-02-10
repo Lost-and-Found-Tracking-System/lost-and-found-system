@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR ZOD VALIDATION SCHEMAS
- * Tests request validation schemas
+ * @module tests/unit/schemas
+ * @description Unit tests for Zod validation schemas — auth, item, claim, profile, and search.
  */
 
 import { describe, it, expect } from 'vitest'

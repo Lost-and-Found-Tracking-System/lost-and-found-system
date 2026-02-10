@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR SCHEDULERS
- * Tests scheduled job definitions and cleanup tasks
+ * @module tests/unit/schedulers
+ * @description Unit tests for schedulers — cron expressions, cleanup tasks, and error handling.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'

@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR NOTIFICATION SERVICE
- * Tests notification types and structures
+ * @module tests/unit/notificationService
+ * @description Unit tests for notification service — types, priorities, channels, and structures.
  */
 
 import { describe, it, expect } from 'vitest'

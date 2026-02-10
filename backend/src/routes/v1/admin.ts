@@ -37,7 +37,7 @@ function requireAdmin(req: AuthRequest, res: Response, next: () => void) {
 
 // Apply auth and admin check to all routes
 adminRouter.use(authMiddleware)
-// adminRouter.use(requireAdmin) // Temporarily disabled for debugging
+adminRouter.use(requireAdmin)
 
 /**
  * GET /api/v1/admin/stats

@@ -1,6 +1,6 @@
 /**
- * DATABASE INTEGRATION TESTS FOR AUTH SERVICE
- * Tests user registration, login, and authentication flows
+ * @module tests/integration/authService
+ * @description Integration tests for auth service — registration, login, and authentication flows.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
