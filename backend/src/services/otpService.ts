@@ -1,5 +1,8 @@
-// OTP Service with Redis Storage
-// Production-ready OTP generation, storage, and verification
+/**
+ * @module services/otpService
+ * @description OTP generation, storage, and verification service backed by Redis.
+ * Provides rate-limited OTP flows for password reset, visitor registration, and email verification.
+ */
 
 import crypto from 'crypto'
 import { UserModel } from '../models/index.js'

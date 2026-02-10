@@ -1,13 +1,26 @@
-// Bull Queue Configuration
-// Production-ready job queue for background tasks (requires Redis)
+/**
+ * @module config/queue
+ * @description Bull queue configuration for background job processing.
+ * Creates Redis-backed job queues for email, SMS, data retention, reminders, and escalation.
+ * Queues are disabled when Redis is unavailable.
+ */
 
 import Bull from 'bull'
 import { env } from './env.js'
 import { isUsingMemoryFallback } from './redis.js'
 
+/** @internal Tracks whether any queue was successfully created */
 let queuesEnabled = false
 
-// Create queue factory that returns null if Redis unavailable
+/**
+ * Factory function to create a Bull queue instance.
+ * Returns `null` if Redis is unavailable (memory fallback mode).
+ *
+ * @param name - The queue name identifier
+ * @param options - Optional Bull queue configuration overrides
+ * @returns A Bull queue instance, or `null` if Redis is unavailable
+ * @internal
+ */
 function createQueue(name: string, options?: Bull.QueueOptions): Bull.Queue | null {
     if (isUsingMemoryFallback()) {
         return null
@@ -33,24 +46,41 @@ function createQueue(name: string, options?: Bull.QueueOptions): Bull.Queue | nu
     }
 }
 
-// Queue instances (may be null if Redis unavailable)
+// ─── Queue Instances ───────────────────────────────────────────────────
+
+/** Queue for automated data retention and archival tasks */
 export const dataRetentionQueue = createQueue('data-retention')
+
+/** Queue for user reminder notifications (e.g., unclaimed items) */
 export const reminderQueue = createQueue('reminders', {
     defaultJobOptions: { backoff: { type: 'exponential', delay: 30000 } },
 })
+
+/** Queue for claim conflict escalation tasks */
 export const escalationQueue = createQueue('escalation')
+
+/** Queue for outbound email delivery via SendGrid (5 retries) */
 export const emailQueue = createQueue('emails', {
     defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 10000 } },
 })
+
+/** Queue for outbound SMS delivery via Fast2SMS (3 retries) */
 export const smsQueue = createQueue('sms', {
     defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 15000 } },
 })
 
+/**
+ * Checks whether Bull queues are operational.
+ * @returns `true` if queues were created and Redis is available
+ */
 export function isQueuesEnabled(): boolean {
     return queuesEnabled && !isUsingMemoryFallback()
 }
 
-// Graceful shutdown
+/**
+ * Gracefully closes all Bull queue connections.
+ * Called during server shutdown.
+ */
 export async function closeQueues(): Promise<void> {
     if (!isQueuesEnabled()) return
 
@@ -59,7 +89,10 @@ export async function closeQueues(): Promise<void> {
     console.log('All Bull queues closed')
 }
 
-// Queue event logging
+/**
+ * Attaches event listeners (completed, failed, stalled) to all active queues.
+ * Provides console logging for job lifecycle events.
+ */
 export function setupQueueListeners(): void {
     if (!isQueuesEnabled()) return
 
@@ -88,7 +121,12 @@ export function setupQueueListeners(): void {
     })
 }
 
-// Get queue stats
+/**
+ * Retrieves current job count statistics for all queues.
+ *
+ * @returns An object mapping queue names to their job counts (waiting, active, completed, failed).
+ *          Returns an empty object if queues are disabled.
+ */
 export async function getQueueStats(): Promise<Record<string, {
     waiting: number
     active: number

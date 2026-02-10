@@ -1,5 +1,9 @@
-// Notification Service
-// Production-ready notification handling with email dispatch
+/**
+ * @module services/notificationService
+ * @description Multi-channel notification service.
+ * Creates in-app notifications and dispatches emails/SMS based on user preferences.
+ * Supports bulk notifications, item match alerts, claim status updates, security alerts, and announcements.
+ */
 
 import { NotificationModel, NotificationPreferencesModel, UserModel } from '../models/index.js'
 import { Types } from 'mongoose'

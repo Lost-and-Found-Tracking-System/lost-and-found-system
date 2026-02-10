@@ -1,3 +1,10 @@
+/**
+ * @module server
+ * @description Application entry point for the Lost and Found Tracking System.
+ * Bootstraps the Express server, connects to MongoDB, initializes Redis,
+ * sets up Bull queues, starts background schedulers, and handles graceful shutdown.
+ */
+
 import { createApp } from './app.js'
 import { connectToDatabase } from './config/database.js'
 import { env } from './config/env.js'
@@ -5,6 +12,18 @@ import { getRedisClient, closeRedis, isUsingMemoryFallback } from './config/redi
 import { closeQueues, setupQueueListeners, isQueuesEnabled } from './config/queue.js'
 import { initAllSchedulers } from './services/schedulers.js'
 
+/**
+ * Starts the application server and initializes all dependencies.
+ *
+ * Initialization order:
+ * 1. Connect to MongoDB
+ * 2. Initialize Redis (with in-memory fallback)
+ * 3. Setup Bull queue listeners (if Redis available)
+ * 4. Start background job schedulers
+ * 5. Listen on configured port
+ *
+ * @throws Error if MongoDB connection fails
+ */
 async function start() {
   // Connect to MongoDB
   await connectToDatabase()

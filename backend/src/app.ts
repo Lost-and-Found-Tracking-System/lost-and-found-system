@@ -1,9 +1,27 @@
+/**
+ * @module app
+ * @description Express application factory. Configures middleware (CORS, JSON parsing,
+ * cookie parsing), mounts API routes under `/api`, and attaches the centralized error handler.
+ */
+
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { router } from './routes/index.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
+/**
+ * Creates and configures a new Express application instance.
+ *
+ * Middleware applied in order:
+ * 1. CORS with configurable allowed origins
+ * 2. JSON body parsing
+ * 3. Cookie parsing
+ * 4. API routes mounted at `/api`
+ * 5. Centralized error handler
+ *
+ * @returns A fully configured Express application
+ */
 export function createApp() {
   const app = express()
 

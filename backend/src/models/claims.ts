@@ -1,7 +1,23 @@
+/**
+ * @module models/claims
+ * @description Mongoose schemas for ownership claim management.
+ * Includes: Claims, Claim Conflicts, Claim Decisions, and Archived Claims.
+ */
+
 import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
 
-// CLAIMS
+// ─── CLAIMS ────────────────────────────────────────────────────────────
+
+/**
+ * Claim schema — represents an ownership claim on a lost/found item.
+ *
+ * @property ownershipProofs - Array of Cloudinary proof image URLs or text descriptions
+ * @property proofScore - Calculated proof strength score (0-100)
+ * @property aiConfidenceScore - AI-generated confidence score for the claim
+ * @property confidenceTier - AI confidence tier: `full`, `partial`, or `low`
+ * @property status - Claim lifecycle: `pending`, `approved`, `rejected`, `withdrawn`, `conflict`
+ */
 const claimSchema = new Schema({
   itemId: { type: Types.ObjectId, required: true, ref: 'items' },
   claimantId: { type: Types.ObjectId, required: true, ref: 'users' },

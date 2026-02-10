@@ -1,3 +1,9 @@
+/**
+ * @module routes/v1/dashboard
+ * @description User dashboard route handlers.
+ * Endpoints: aggregated statistics (reported items, claims, pending claims, resolved items).
+ */
+
 import { Router } from 'express'
 import type { Response } from 'express'
 import { authMiddleware } from '../../middleware/auth.js'

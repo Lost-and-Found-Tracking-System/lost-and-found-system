@@ -1,3 +1,9 @@
+/**
+ * @module routes
+ * @description Central API router — mounts all v1 route modules and the health check endpoint.
+ * Base path: `/api`
+ */
+
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import { authRouter } from './v1/auth.js'

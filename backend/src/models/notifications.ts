@@ -1,7 +1,21 @@
+/**
+ * @module models/notifications
+ * @description Mongoose schemas for the notification system.
+ * Includes: Notifications, Notification Preferences, and Announcements.
+ */
+
 import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
 
-// NOTIFICATIONS
+// ─── NOTIFICATIONS ─────────────────────────────────────────────────────
+
+/**
+ * Notification schema — individual notification entries sent to users.
+ *
+ * @property type - Notification category (e.g., `match`, `claim_approved`, `security_alert`)
+ * @property channel - Delivery channel: `email`, `push`, `sms`, or `in_app`
+ * @property priority - Urgency level: `low`, `normal`, `high`, `urgent`
+ */
 const notificationSchema = new Schema({
   userId: { type: Types.ObjectId, required: true, ref: 'users' },
   type: {

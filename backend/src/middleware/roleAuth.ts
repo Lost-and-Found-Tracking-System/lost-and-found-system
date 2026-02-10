@@ -1,15 +1,42 @@
+/**
+ * @module middleware/roleAuth
+ * @description Role-based access control (RBAC) middleware.
+ * Provides composable middleware functions to restrict route access
+ * based on user roles, admin status, scopes, and resource ownership.
+ */
+
 import type { Response, NextFunction } from 'express'
 import type { AuthRequest } from './auth.js'
 
+/**
+ * Valid user roles in the system.
+ * - `student` / `faculty` — Standard campus users
+ * - `visitor` — Temporary OTP-authenticated users
+ * - `admin` — Full system administrator
+ * - `delegated_admin` — Admin with limited scoped permissions
+ */
 export type UserRole = 'student' | 'faculty' | 'visitor' | 'admin' | 'delegated_admin'
 
+/**
+ * Configuration object for role-based access rules.
+ */
 export interface RoleConfig {
+    /** Roles that are allowed to access the route */
     allowedRoles: UserRole[]
+    /** Optional scopes required for delegated admins */
     requireScopes?: string[]
 }
 
 /**
- * Middleware to check if user has required role(s)
+ * Creates middleware that restricts access to users with specific roles.
+ *
+ * @param allowedRoles - One or more {@link UserRole} values that are permitted
+ * @returns Express middleware that responds with 403 if the user's role is not in the allowed list
+ *
+ * @example
+ * ```typescript
+ * router.post('/items', authMiddleware, requireRole('student', 'faculty'), handler)
+ * ```
  */
 export function requireRole(...allowedRoles: UserRole[]) {
     return (req: AuthRequest, res: Response, next: NextFunction): void => {

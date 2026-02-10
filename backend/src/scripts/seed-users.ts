@@ -1,5 +1,10 @@
-// Seed script to create test users with properly hashed passwords
-// Run with: npx tsx src/scripts/seed-users.ts
+/**
+ * @module scripts/seed-users
+ * @description Database seed script — creates test users (student, faculty, admin) with
+ * hashed passwords. Skips users that already exist.
+ *
+ * Run with: `npx tsx src/scripts/seed-users.ts`
+ */
 
 import { connectToDatabase } from '../config/database.js'
 import { UserModel } from '../models/index.js'

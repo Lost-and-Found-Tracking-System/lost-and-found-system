@@ -1,7 +1,22 @@
+/**
+ * @module models/audit
+ * @description Mongoose schemas for system auditing and data governance.
+ * Includes: Audit Logs (action tracking) and Data Retention Policies (automated cleanup rules).
+ */
+
 import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
 
-// AUDIT LOGS
+// ─── AUDIT LOGS ────────────────────────────────────────────────────────
+
+/**
+ * Audit log schema — records every significant action by users for accountability.
+ *
+ * @property actorId - The user who performed the action
+ * @property action - Action identifier (e.g., `'item.create'`, `'claim.approve'`)
+ * @property targetEntity - Entity type affected (e.g., `'items'`, `'claims'`)
+ * @property targetId - MongoDB ObjectId of the affected document
+ */
 const auditLogSchema = new Schema({
   actorId: { type: Types.ObjectId, required: true, ref: 'users' },
   action: { type: String, required: true },
