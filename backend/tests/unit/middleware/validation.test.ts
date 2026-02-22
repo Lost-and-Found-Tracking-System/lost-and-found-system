@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR VALIDATION MIDDLEWARE LOGIC
- * Tests validation patterns and error handling
+ * @module tests/unit/middleware/validation
+ * @description Unit tests for validation middleware — Zod schema validation and error responses.
  */
 
 import { describe, it, expect } from 'vitest'

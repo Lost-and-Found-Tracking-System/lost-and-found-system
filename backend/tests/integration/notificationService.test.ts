@@ -1,6 +1,6 @@
 /**
- * INTEGRATION TESTS FOR NOTIFICATION SERVICE
- * Tests with database and mocked email/SMS
+ * @module tests/integration/notificationService
+ * @description Integration tests for notification service — database + mocked email/SMS.
  */
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest'

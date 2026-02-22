@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR CONFIG FILES
- * Tests env, database, redis, and queue configuration
+ * @module tests/unit/config
+ * @description Unit tests for config files — env, database, redis, and queue configuration.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'

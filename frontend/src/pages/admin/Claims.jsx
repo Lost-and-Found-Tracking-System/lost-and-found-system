@@ -1,3 +1,7 @@
+/**
+ * @module pages/admin/Claims
+ * @description Admin claims management page for reviewing ownership claims and item reports.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
@@ -75,7 +79,7 @@ const ClaimsManagement = () => {
     // Fetch claims
     useEffect(() => {
         if (activeTab !== 'claims') return;
-        
+
         const fetchClaims = async () => {
             setLoading(true);
             setError('');
@@ -115,7 +119,7 @@ const ClaimsManagement = () => {
     // Fetch pending item reports
     useEffect(() => {
         if (activeTab !== 'reports') return;
-        
+
         const fetchItems = async () => {
             setLoading(true);
             setError('');
@@ -423,7 +427,7 @@ const ClaimsManagement = () => {
                                 </div>
                                 <h3 className="text-xl font-bold text-white mb-2">No item reports found</h3>
                                 <p className="text-slate-400">
-                                    {reportFilter === 'pending' 
+                                    {reportFilter === 'pending'
                                         ? 'All item reports have been reviewed.'
                                         : 'Try adjusting your filters or search query.'}
                                 </p>

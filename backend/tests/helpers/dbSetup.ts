@@ -1,6 +1,6 @@
 /**
- * Database Setup for Integration Tests
- * Uses mongodb-memory-server for isolated test database
+ * @module tests/helpers/dbSetup
+ * @description Database setup for integration tests — uses mongodb-memory-server for isolated test database.
  */
 
 import { MongoMemoryServer } from 'mongodb-memory-server'

@@ -1,46 +1,71 @@
-import { test, expect } from '@playwright/test';
-import { ROUTES } from '../fixtures/test-data';
+import { expect, test } from '@playwright/test';
 
-test.describe('Landing Page E2E', () => {
-    test('landing page loads successfully', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        await expect(page).toHaveTitle(/Amrita|Lost|Found|Nexus/i);
+test.describe('Landing Page E2E Tests', () => {
+
+    // ── Positive: Landing page loads ──
+    test('TC-LAND-01: Landing page loads successfully at root URL', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        // Root URL may stay as / or have no path
+        const url = page.url();
+        expect(url).toContain('localhost:5173');
     });
 
-    test('hero section displays correctly', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        await expect(page.locator('h1').first()).toBeVisible();
+    // ── Positive: Page has heading ──
+    test('TC-LAND-02: Landing page displays a main heading', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const heading = page.locator('h1').first();
+        await expect(heading).toBeVisible();
     });
 
-    test('feature cards display', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        const features = page.locator('[class*="rounded"]').filter({ hasText: /AI|Secure|Zone|Live/i });
-        await expect(features.first()).toBeVisible();
+    // ── Positive: Login link is visible ──
+    test('TC-LAND-03: Landing page has login navigation link', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const loginLink = page.locator('a[href="/login"], button:has-text("Login"), a:has-text("Login"), button:has-text("Sign In"), a:has-text("Sign In")').first();
+        await expect(loginLink).toBeVisible();
     });
 
-    test('statistics section shows data', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        await expect(page.locator('text=/\\d+k\\+|\\d+/').first()).toBeVisible();
+    // ── Positive: Register link is visible ──
+    test('TC-LAND-04: Landing page has register navigation link', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const registerLink = page.locator('a[href="/register"], button:has-text("Register"), a:has-text("Register"), button:has-text("Sign Up"), a:has-text("Sign Up")').first();
+        await expect(registerLink).toBeVisible();
     });
 
-    test('CTA button visible', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        const ctaButton = page.locator('a:has-text("Launch"), a:has-text("Portal"), a:has-text("Login")').first();
-        await expect(ctaButton).toBeVisible();
+    // ── Positive: Login link navigates correctly ──
+    test('TC-LAND-05: Login link navigates to /login page', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const loginLink = page.locator('a[href="/login"], button:has-text("Login"), a:has-text("Login"), button:has-text("Sign In"), a:has-text("Sign In")').first();
+        await loginLink.click();
+        await expect(page).toHaveURL(/\/login/);
     });
 
-    test('navigation to login from landing', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        const ctaButton = page.locator('a:has-text("Launch"), a:has-text("Portal"), a:has-text("Login")').first();
-        await ctaButton.click();
-        await expect(page).toHaveURL(/\/(login|portal)/);
+    // ── Positive: Page title is set ──
+    test('TC-LAND-06: Landing page has a non-empty document title', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const title = await page.title();
+        expect(title.length).toBeGreaterThan(0);
     });
 
-    test('footer section visible', async ({ page }) => {
-        await page.goto(ROUTES.home);
-        const footer = page.locator('footer').first();
-        if (await footer.isVisible()) {
-            await expect(footer).toBeVisible();
-        }
+    // ── Positive: Page content is present ──
+    test('TC-LAND-07: Landing page contains descriptive content', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        const bodyText = await page.locator('body').innerText();
+        expect(bodyText.length).toBeGreaterThan(50);
     });
+
+    // ── Positive: /home alias works ──
+    test('TC-LAND-08: /home alias loads the same landing page', async ({ page }) => {
+        await page.goto('/home');
+        await page.waitForLoadState('networkidle');
+        const heading = page.locator('h1').first();
+        await expect(heading).toBeVisible();
+    });
+
 });

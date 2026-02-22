@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR UPLOAD SERVICE
- * Tests Cloudinary integration with mocks
+ * @module tests/unit/uploadService
+ * @description Unit tests for upload service — Cloudinary integration with mocks.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'

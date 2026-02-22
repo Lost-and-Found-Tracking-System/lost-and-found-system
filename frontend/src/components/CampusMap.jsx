@@ -1,3 +1,14 @@
+/**
+ * @module components/CampusMap
+ * @description Interactive campus zone selector.
+ * Renders a list/grid of campus zones with hover highlights and click-to-select behaviour.
+ *
+ * @param {object} props
+ * @param {Array} [props.zones=[]] - Available campus zones from the API
+ * @param {string|null} props.selectedZone - Currently selected zone ID
+ * @param {Function} props.onZoneSelect - Callback invoked with zone data on selection
+ */
+
 import React, { useState } from 'react';
 import { MapPin, AlertTriangle } from 'lucide-react';
 

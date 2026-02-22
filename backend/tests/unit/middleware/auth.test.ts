@@ -1,6 +1,6 @@
 /**
- * UNIT TESTS FOR AUTH MIDDLEWARE LOGIC
- * Tests authentication token handling patterns
+ * @module tests/unit/middleware/auth
+ * @description Unit tests for auth middleware — token extraction and payload handling.
  */
 
 import { describe, it, expect } from 'vitest'

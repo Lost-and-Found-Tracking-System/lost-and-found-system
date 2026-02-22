@@ -1,11 +1,9 @@
 /**
- * Premium Scroll Effects Library
- * Inspired by CodePen examples - converted to React with GSAP
- * 
- * Features from:
- * - Option 1: SVG Parallax + Scene Transitions  
- * - Option 2: 3D Hyper Scroll + HUD Overlays
- * - Option 3: Text Reveal + Parallax Images
+ * @module components/ScrollEffects/PremiumScrollEffects
+ * @description Comprehensive scroll effects library with overlays, 3D
+ * perspectives, parallax layers, text reveals, hero sections, floating cards,
+ * gradient backgrounds, velocity-based effects, progress bars, and staggered
+ * reveals. Built with React and GSAP ScrollTrigger.
  */
 
 import React, { useEffect, useRef, useState } from 'react';

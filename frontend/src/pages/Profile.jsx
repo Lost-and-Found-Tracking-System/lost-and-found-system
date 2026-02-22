@@ -1,6 +1,6 @@
 /**
- * PREMIUM PROFILE PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Profile
+ * @description User profile page with editable personal info, account details, and activity stats.
  */
 
 import React, { useState, useEffect, useRef } from 'react';

@@ -1,3 +1,10 @@
+/**
+ * @module services/api
+ * @description Pre-configured Axios instance for all backend API calls.
+ * Attaches JWT bearer tokens from localStorage on every request and handles
+ * 401 auto-logout (clears storage and redirects to `/login`).
+ */
+
 import axios from 'axios';
 
 const api = axios.create({
@@ -26,27 +33,27 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        
+
         // Handle 401 errors - but not on login/register pages to avoid redirect loops
         if (error.response?.status === 401 && !originalRequest._retry) {
-            const isAuthPage = window.location.pathname === '/login' || 
-                               window.location.pathname === '/register' ||
-                               window.location.pathname === '/register-visitor' ||
-                               window.location.pathname === '/' ||
-                               window.location.pathname === '/home';
-            
+            const isAuthPage = window.location.pathname === '/login' ||
+                window.location.pathname === '/register' ||
+                window.location.pathname === '/register-visitor' ||
+                window.location.pathname === '/' ||
+                window.location.pathname === '/home';
+
             if (!isAuthPage) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 window.location.href = '/login';
             }
         }
-        
+
         // Handle network errors
         if (!error.response) {
             error.message = 'Network error. Please check your connection.';
         }
-        
+
         return Promise.reject(error);
     }
 );

@@ -1,6 +1,6 @@
 /**
- * PREMIUM ITEM DETAILS PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/ItemDetails
+ * @description Item detail view with image gallery, claim submission, and status timeline.
  */
 
 import React, { useState, useEffect, useRef } from 'react';

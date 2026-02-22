@@ -1,3 +1,7 @@
+/**
+ * @module pages/admin/RoleManagement
+ * @description Admin user permission management page for role assignment with audit logging.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
@@ -157,8 +161,8 @@ const RoleManagement = () => {
                                     key={role}
                                     onClick={() => setRoleFilter(role)}
                                     className={`px-5 py-3 rounded-xl font-bold capitalize transition-all whitespace-nowrap ${roleFilter === role
-                                            ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
-                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'
+                                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
+                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'
                                         }`}
                                 >
                                     {role.replace('_', ' ')}

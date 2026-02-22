@@ -1,7 +1,10 @@
 /**
- * PREMIUM EFFECTS LIBRARY
- * Implementations inspired by 39 CodePen effects
- * All converted to React components
+ * @module effects/PremiumEffects
+ * @description Premium visual effect components (Part 1). Includes GlitchText,
+ * MagneticCursor, ParticleCursor, MorphingBlob, WaveText, TextCube,
+ * LiquidText, AuroraBackground, NoiseOverlay, SpotlightCursor, ElasticButton,
+ * ScrambleLink, FloatingElement, StaggerReveal, GradientFlowText, Typewriter,
+ * RevealMask, and more. All built with GSAP and React.
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';

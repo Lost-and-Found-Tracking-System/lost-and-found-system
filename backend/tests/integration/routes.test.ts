@@ -1,6 +1,6 @@
 /**
- * COMPREHENSIVE ROUTE INTEGRATION TESTS
- * Tests all v1 API routes focusing on authentication and validation
+ * @module tests/integration/routes
+ * @description Route integration tests — all v1 API routes with auth and validation.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'

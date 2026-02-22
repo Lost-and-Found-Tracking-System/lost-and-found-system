@@ -1,6 +1,6 @@
 /**
- * PREMIUM REGISTER PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Register
+ * @description Multi-step registration page with personal info, security setup, and role selection.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -251,8 +251,8 @@ const Register = () => {
                         <div key={s} className="flex items-center gap-2">
                             <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${step >= s
-                                        ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/30'
-                                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                    ? 'bg-gradient-to-r from-primary-500 to-purple-500 text-white shadow-lg shadow-primary-500/30'
+                                    : 'bg-slate-800 text-slate-500 border border-slate-700'
                                     }`}
                             >
                                 {step > s ? <CheckCircle size={18} /> : s}
@@ -393,8 +393,8 @@ const Register = () => {
                                             <div
                                                 key={i}
                                                 className={`h-1 flex-1 rounded-full transition-all ${formData.password.length >= i * 2
-                                                        ? i <= 2 ? 'bg-red-500' : i === 3 ? 'bg-yellow-500' : 'bg-green-500'
-                                                        : 'bg-slate-700'
+                                                    ? i <= 2 ? 'bg-red-500' : i === 3 ? 'bg-yellow-500' : 'bg-green-500'
+                                                    : 'bg-slate-700'
                                                     }`}
                                             />
                                         ))}
@@ -420,8 +420,8 @@ const Register = () => {
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, role: role.id })}
                                                 className={`form-field p-6 rounded-2xl border-2 transition-all text-left ${isSelected
-                                                        ? 'border-purple-500 bg-purple-500/10'
-                                                        : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
+                                                    ? 'border-purple-500 bg-purple-500/10'
+                                                    : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
                                                     }`}
                                             >
                                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isSelected ? 'bg-purple-500/20' : 'bg-slate-700/50'

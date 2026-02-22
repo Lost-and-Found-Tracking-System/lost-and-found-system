@@ -1,7 +1,8 @@
 /**
- * HERO REVEAL SCROLL - Based on Alice in Wonderland CodePen
- * Parallax falling effect with hero reveal and floating objects
- * Perfect for dramatic page transitions
+ * @module components/ScrollEffects/HeroRevealScroll
+ * @description Parallax hero reveal scroll component with falling-object
+ * effects, split-text animation, and gradient-shift backgrounds. Also exports
+ * a {@link SmoothScrollWrapper} with Lenis-style lerp scrolling.
  */
 
 import React, { useEffect, useRef } from 'react';

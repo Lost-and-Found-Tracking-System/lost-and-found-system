@@ -1,6 +1,6 @@
 /**
- * PREMIUM DASHBOARD PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Dashboard
+ * @description Main user dashboard page with premium visual effects and real-time stats.
  */
 
 import React, { useState, useEffect, useRef } from 'react';

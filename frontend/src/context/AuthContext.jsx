@@ -1,8 +1,21 @@
+/**
+ * @module context/AuthContext
+ * @description React context for authentication state.
+ * Provides user object, loading flag, and auth actions (login, register, logout, updateProfile)
+ * to all descendant components via the {@link useAuth} hook.
+ */
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
 
+/**
+ * Custom hook to consume the AuthContext.
+ * Must be called inside an {@link AuthProvider}.
+ *
+ * @returns {{ user: object|null, loading: boolean, login: Function, register: Function, logout: Function, updateProfile: Function }}
+ */
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -11,6 +24,13 @@ export const useAuth = () => {
     return context;
 };
 
+/**
+ * Auth provider component — wraps the app to supply authentication state.
+ * On mount, verifies the stored JWT and fetches the user profile.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -27,7 +47,7 @@ export const AuthProvider = ({ children }) => {
             try {
                 const response = await api.get('/v1/users/profile');
                 const userData = response.data;
-                
+
                 // Map backend response to user object
                 const mappedUser = {
                     id: userData._id,
@@ -41,7 +61,7 @@ export const AuthProvider = ({ children }) => {
                     visitorId: userData.visitorId,
                     createdAt: userData.createdAt,
                 };
-                
+
                 setUser(mappedUser);
                 localStorage.setItem('user', JSON.stringify(mappedUser));
             } catch (error) {

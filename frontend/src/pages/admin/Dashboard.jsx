@@ -1,6 +1,6 @@
 /**
- * PREMIUM ADMIN DASHBOARD
- * With advanced effects from CodePen inspirations
+ * @module pages/admin/Dashboard
+ * @description Admin dashboard with system stats, live activity feed, and quick-access links.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -77,7 +77,7 @@ const AdminDashboard = () => {
         };
 
         fetchData();
-        
+
         // Auto-refresh activity every 30 seconds
         const interval = setInterval(async () => {
             try {
@@ -390,11 +390,10 @@ const AdminDashboard = () => {
                                                         </p>
                                                     </div>
                                                     <span
-                                                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                                                            isApproval ? 'bg-emerald-500/20 text-emerald-400' :
-                                                            isRejection ? 'bg-red-500/20 text-red-400' :
-                                                            ''
-                                                        }`}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isApproval ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                isRejection ? 'bg-red-500/20 text-red-400' :
+                                                                    ''
+                                                            }`}
                                                         style={!isApproval && !isRejection ? {
                                                             background: `${color}20`,
                                                             color

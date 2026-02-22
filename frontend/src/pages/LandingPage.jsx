@@ -1,7 +1,6 @@
 /**
- * PREMIUM LANDING PAGE
- * Using ALL 39+ effects from CodePen inspirations
- * FUTURE-TECH aesthetic - Maximum visual impact
+ * @module pages/LandingPage
+ * @description Premium landing page showcasing 39+ visual effects with a future-tech aesthetic.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -206,7 +205,7 @@ const HeroSection = () => {
                 <div className="hero-subtitle text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto mb-16">
                     <Typewriter
                         texts={[
-                            'The neural recovery system for your belongings',
+                            'The Item Recovery System for your belongings',
                             'AI-powered item matching technology',
                             'Campus-wide tracking network',
                             'Secure verification system'
@@ -592,7 +591,7 @@ const Footer = () => {
                             </span>
                         </div>
                         <p className="text-slate-400 max-w-sm">
-                            The official neural recovery system for Amrita Vishwa Vidyapeetham.
+                            The official Item Recovery System for Amrita Vishwa Vidyapeetham.
                             Report, track, and recover your belongings.
                         </p>
                     </div>

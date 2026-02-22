@@ -1,6 +1,6 @@
 /**
- * PREMIUM MY CLAIMS PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/MyClaims
+ * @description User claims tracking page with status filtering and GSAP animations.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -190,8 +190,8 @@ const MyClaims = () => {
                                 key={f.id}
                                 onClick={() => setFilter(f.id)}
                                 className={`filter-pill px-5 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${filter === f.id
-                                        ? `bg-gradient-to-r ${f.color} text-white shadow-lg`
-                                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
+                                    ? `bg-gradient-to-r ${f.color} text-white shadow-lg`
+                                    : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700'
                                     }`}
                             >
                                 {f.label}

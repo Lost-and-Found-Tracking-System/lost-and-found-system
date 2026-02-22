@@ -1,3 +1,9 @@
+/**
+ * @module main
+ * @description Application entry point — mounts the React root with StrictMode,
+ * loads global CSS and GSAP effect styles.
+ */
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'

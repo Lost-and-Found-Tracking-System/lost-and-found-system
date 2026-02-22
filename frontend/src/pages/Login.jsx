@@ -1,6 +1,6 @@
 /**
- * PREMIUM LOGIN PAGE
- * With advanced effects from CodePen inspirations
+ * @module pages/Login
+ * @description Login page with email/password auth, role-based redirect, and visual effects.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -195,7 +195,7 @@ const Login = () => {
                     <h1 className="text-5xl font-black text-white tracking-tight">
                         <GlitchText text="L" /><NeonText color="#0ea5e9">&</NeonText><GlitchText text="F" />
                     </h1>
-                    <p className="text-slate-400 mt-2 text-sm uppercase tracking-widest">Neural Recovery System</p>
+                    <p className="text-slate-400 mt-2 text-sm uppercase tracking-widest">Item Recovery System</p>
                 </div>
 
                 {/* Login Card */}
