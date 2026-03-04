@@ -3,40 +3,48 @@
  * @description Multi-step item reporting form for lost/found items with image upload and zone selection.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/Sidebar';
 import { gsap } from 'gsap';
 import {
-    Package,
-    Camera,
-    MapPin,
-    Calendar,
-    Tag,
-    FileText,
-    Upload,
-    X,
+    AlertCircle,
     ArrowLeft,
     ArrowRight,
+    Calendar,
     CheckCircle,
     Loader2,
+    MapPin,
+    Package,
     Sparkles,
-    AlertCircle,
-    Image as ImageIcon
+    Upload,
+    X
 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import {
-    MorphingBlob,
-    GlitchText,
-    NeonText,
-    TiltCard,
-    GradientBorderCard,
     ElasticButton,
-    PulseRings,
+    GlitchText,
+    MorphingBlob,
+    NeonText,
     ParticleExplosion,
+    PulseRings,
+    TiltCard,
     WaveText
 } from '../effects';
+import api from '../services/api';
+
+const categories = [
+    'Electronics', 'Documents', 'Accessories', 'Clothing',
+    'Keys', 'Bags', 'Books', 'Sports Equipment', 'Appliances',
+    'Storage Device', 'Identification', 'Computing Device', 'Other'
+];
+
+const steps = [
+    { num: 1, label: 'Type' },
+    { num: 2, label: 'Details' },
+    { num: 3, label: 'Location' },
+    { num: 4, label: 'Images' }
+];
 
 const ReportItem = () => {
     const navigate = useNavigate();
@@ -45,6 +53,11 @@ const ReportItem = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+
+    // Category validation state
+    const [categoryValidation, setCategoryValidation] = useState(null);
+    const [validatingCategory, setValidatingCategory] = useState(false);
+    const validationTimerRef = useRef(null);
 
     const [formData, setFormData] = useState({
         type: '',
@@ -74,6 +87,60 @@ const ReportItem = () => {
         };
         fetchZones();
     }, []);
+
+    // Debounced title-category validation via Groq AI
+    const validateCategoryMatch = useCallback((title, category, description) => {
+        // Clear any pending timer
+        if (validationTimerRef.current) {
+            clearTimeout(validationTimerRef.current);
+        }
+
+        // Reset if either field is empty
+        if (!title.trim() || !category) {
+            setCategoryValidation(null);
+            setValidatingCategory(false);
+            return;
+        }
+
+        setValidatingCategory(true);
+
+        // Debounce: wait 600ms after user stops typing
+        validationTimerRef.current = setTimeout(async () => {
+            try {
+                // Pass all categories to backend to check if "Other" should be promoted
+                // Use a long timeout since Groq API + MiniLM can take 30-90s
+                const res = await api.post('/v1/items/validate-category', {
+                    title,
+                    category,
+                    description,
+                    allCategories: categories
+                }, { timeout: 180000 });
+                setCategoryValidation(res.data);
+            } catch (err) {
+                console.error('Category validation error:', err);
+                const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+                // Show a timed-out state instead of silently showing nothing
+                setCategoryValidation(isTimeout
+                    ? { confidence: -1, isValid: false, timedOut: true, title, category }
+                    : null
+                );
+            } finally {
+                setValidatingCategory(false);
+            }
+        }, 600);
+    }, [categories]);
+
+    // Trigger validation when title, category or description changes
+    useEffect(() => {
+        if (step === 2) {
+            validateCategoryMatch(formData.title, formData.category, formData.description);
+        }
+        return () => {
+            if (validationTimerRef.current) {
+                clearTimeout(validationTimerRef.current);
+            }
+        };
+    }, [formData.title, formData.category, formData.description, step, validateCategoryMatch]);
 
     // Step transition animation
     useEffect(() => {
@@ -287,17 +354,7 @@ const ReportItem = () => {
         }
     };
 
-    const categories = [
-        'Electronics', 'Documents', 'Accessories', 'Clothing',
-        'Keys', 'Bags', 'Books', 'Sports Equipment', 'Other'
-    ];
 
-    const steps = [
-        { num: 1, label: 'Type' },
-        { num: 2, label: 'Details' },
-        { num: 3, label: 'Location' },
-        { num: 4, label: 'Images' }
-    ];
 
     if (success) {
         return (
@@ -460,6 +517,51 @@ const ReportItem = () => {
                                                 ))}
                                             </div>
                                         </div>
+
+                                        {/* AI Category Validation Feedback */}
+                                        {validatingCategory && formData.title && formData.category && (
+                                            <div className="form-field p-4 bg-slate-800/40 border border-slate-700 rounded-xl flex items-center gap-3">
+                                                <Loader2 size={18} className="animate-spin text-primary-400" />
+                                                <span className="text-slate-400 text-sm">AI is verifying title-category match... (may take 30-60s)</span>
+                                            </div>
+                                        )}
+
+                                        {categoryValidation && !validatingCategory && (
+                                            categoryValidation.timedOut ? (
+                                                <div className="form-field p-4 bg-slate-800/40 border border-amber-500/30 rounded-xl flex items-center gap-3 text-amber-400">
+                                                    <AlertCircle size={20} />
+                                                    <span className="text-sm">AI validation timed out. You can still submit — the category match could not be verified.</span>
+                                                </div>
+                                            ) : (
+                                                <div className={`form-field p-4 rounded-xl flex items-center gap-3 border ${categoryValidation.confidence > 70
+                                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                                    : categoryValidation.confidence >= 35
+                                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                                        : 'bg-red-500/10 border-red-500/30 text-red-400'
+                                                    }`}>
+                                                    {categoryValidation.confidence > 70 ? (
+                                                        <CheckCircle size={20} />
+                                                    ) : (
+                                                        <AlertCircle size={20} />
+                                                    )}
+                                                    <div>
+                                                        <span className="text-sm font-medium">
+                                                            {categoryValidation.confidence === 100 && formData.category.toLowerCase() === 'other'
+                                                                ? '★ Superb choice! "Other" is the perfect category as no other matches were found.'
+                                                                : categoryValidation.confidence > 70
+                                                                    ? '✓ Great match! Title and category align well.'
+                                                                    : categoryValidation.confidence >= 35
+                                                                        ? '⚠ Intermediate match. This title might fit, but consider other categories.'
+                                                                        : '✗ Poor match. Title and category seem mismatched.'
+                                                            }
+                                                        </span>
+                                                        <span className="block text-xs mt-1 opacity-70">
+                                                            AI confidence: {Number(categoryValidation.confidence).toFixed(1)}%
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )
+                                        )}
 
                                         <div className="form-field">
                                             <label className="block text-slate-400 text-sm mb-2">Description</label>

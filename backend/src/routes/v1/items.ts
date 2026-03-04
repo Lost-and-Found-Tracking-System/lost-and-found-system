@@ -4,27 +4,46 @@
  * Endpoints: submit items, manage drafts, search/filter items, and retrieve items by ID or type.
  */
 
-import { Router } from 'express'
 import type { Response } from 'express'
-import { authMiddleware, optionalAuthMiddleware } from '../../middleware/auth.js'
+import { Router } from 'express'
 import type { AuthRequest } from '../../middleware/auth.js'
+import { authMiddleware, optionalAuthMiddleware } from '../../middleware/auth.js'
+import { createApiError } from '../../middleware/errorHandler.js'
 import { validateRequest } from '../../middleware/validation.js'
-import { submitItemSchema, organizationSubmissionSchema, draftSaveSchema } from '../../schemas/index.js'
+import { ItemModel } from '../../models/index.js'
+import { draftSaveSchema, organizationSubmissionSchema, submitItemSchema } from '../../schemas/index.js'
+import { validateTitleCategory } from '../../services/embeddingService.js'
 import {
-  submitItem,
+  deleteDraft,
+  getDraft,
   getItemById,
   getItemsByType,
-  searchItems,
   saveDraft,
-  getDraft,
-  deleteDraft,
-  validateZone,
-  submitOrganizationItem
+  searchItems,
+  submitItem,
+  submitOrganizationItem,
+  validateZone
 } from '../../services/itemService.js'
-import { createApiError } from '../../middleware/errorHandler.js'
-import { ItemModel } from '../../models/index.js'
 
 export const itemsRouter = Router()
+
+// ============ TITLE-CATEGORY VALIDATION ============
+
+// Validate that the item title matches the selected category using MiniLM bi-encoder model
+itemsRouter.post('/validate-category', authMiddleware, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { title, category, description, allCategories } = req.body
+
+    if (!title || !category) {
+      throw createApiError(400, 'Both title and category are required')
+    }
+
+    const validation = await validateTitleCategory(title, category, description, allCategories)
+    res.json(validation)
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
 
 // ============ ITEM SUBMISSIONS ============
 

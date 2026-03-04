@@ -13,7 +13,7 @@ const api = axios.create({
         'Content-Type': 'application/json',
     },
     withCredentials: true,
-    timeout: 15000,
+    timeout: 120000, // 120s — AI endpoints (Groq + MiniLM) can take 30-60s
 });
 
 // Request interceptor - add auth token

@@ -13,8 +13,14 @@
  * - Roboflow API: Stationery detection
  */
 
+import { execFile } from 'child_process'
 import { Types } from 'mongoose'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { AiConfigurationModel, AiMatchModel, ItemModel } from '../models/index.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // ============ TYPE DEFINITIONS ============
 
@@ -122,7 +128,7 @@ interface ItemDocument {
 
 // ============ CONFIGURATION ============
 
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models'
+const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models'
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || ''
 
 const ROBOFLOW_API_URL = 'https://serverless.roboflow.com/ai-gym/workflows/stationaryclassification'
@@ -467,12 +473,12 @@ function calculateTF(terms: string[]): Map<string, number> {
  */
 function calculateIDF(terms: string[]): Map<string, number> {
     const idf = new Map<string, number>()
-    
+
     // Static IDF values based on common lost/found item vocabulary
     // Higher values for more distinctive terms
     const commonTerms = new Set(['black', 'blue', 'red', 'white', 'small', 'large', 'new', 'old'])
     const distinctiveTerms = new Set(['serial', 'brand', 'model', 'scratch', 'sticker', 'custom'])
-    
+
     for (const term of terms) {
         if (distinctiveTerms.has(term)) {
             idf.set(term, 2.5)
@@ -492,7 +498,7 @@ function calculateIDF(terms: string[]): Map<string, number> {
  */
 export function embedTextWithTFIDF(description: string): TextEmbedding {
     const terms = preprocessText(description)
-    
+
     if (terms.length === 0) {
         return {
             itemId: '',
@@ -504,17 +510,17 @@ export function embedTextWithTFIDF(description: string): TextEmbedding {
 
     const tf = calculateTF(terms)
     const idf = calculateIDF(terms)
-    
+
     // Build vocabulary and TF-IDF vector
     const vocabulary = Array.from(new Set(terms)).sort()
     const embedding: number[] = []
-    
+
     for (const term of vocabulary) {
         const tfValue = tf.get(term) || 0
         const idfValue = idf.get(term) || 1
         embedding.push(tfValue * idfValue)
     }
-    
+
     // Normalize the vector
     const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0))
     if (magnitude > 0) {
@@ -840,7 +846,7 @@ async function calculateTextScore(
 ): Promise<number> {
     const text1 = `${item1.itemAttributes.description} ${item1.itemAttributes.category} ${item1.itemAttributes.color || ''} ${item1.itemAttributes.material || ''}`
     const text2 = `${item2.itemAttributes.description} ${item2.itemAttributes.category} ${item2.itemAttributes.color || ''} ${item2.itemAttributes.material || ''}`
-    
+
     return calculateTFIDFSimilarity(text1, text2)
 }
 
@@ -1391,6 +1397,81 @@ export async function groupImagesByObjects(
     }
 
     return groups
+}
+
+// ============ MINI-LM TEXT EMBEDDING (BI-ENCODER) ============
+
+import { pipeline } from '@xenova/transformers'
+
+// Singleton pipeline instance
+let embeddingPipeline: any = null
+
+/**
+ * Get or initialize the embedding pipeline
+ */
+async function getEmbeddingPipeline() {
+    if (!embeddingPipeline) {
+        try {
+            console.log('[AI] Initializing local MiniLM bi-encoder...')
+            embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2')
+        } catch (error) {
+            console.error('Failed to initialize embedding pipeline:', error)
+            throw error
+        }
+    }
+    return embeddingPipeline
+}
+
+export interface TitleCategoryValidation {
+    confidence: number
+    isValid: boolean
+    title: string
+    category: string
+}
+
+/**
+ * Validate whether an item title/description semantically matches its selected category
+ * using a multi-stage LLM reasoning + Bi-Encoder similarity pipeline (via Python script).
+ */
+
+export async function validateTitleCategory(
+    title: string,
+    category: string,
+    description: string = '',
+    allCategories?: string[]
+): Promise<TitleCategoryValidation> {
+    const pythonScriptPath = path.join(__dirname, 'ai_category_validator.py');
+
+    return new Promise((resolve) => {
+        execFile('python3', [pythonScriptPath, title, description, category], (error, stdout, stderr) => {
+            if (error) {
+                console.error(`[AI Python Bridge] Error: ${error.message}`);
+                console.error(`[AI Python Bridge] Stderr: ${stderr}`);
+                return resolve({ confidence: 0, isValid: false, title, category });
+            }
+
+            try {
+                const lines = stdout.trim().split('\n');
+                const lastLine = lines[lines.length - 1];
+                const result = JSON.parse(lastLine);
+
+                const similarity = parseFloat(result.similarity);
+
+                console.log(`[AI Python Bridge] Similarity Score: ${similarity}`);
+
+                resolve({
+                    confidence: similarity,
+                    isValid: similarity >= 35,
+                    title: `${title} ${description}`.trim(),
+                    category
+                });
+            } catch (parseError) {
+                console.error(`[AI Python Bridge] Parse Error: ${parseError}`);
+                console.error(`[AI Python Bridge] Raw Output: ${stdout}`);
+                resolve({ confidence: 0, isValid: false, title, category });
+            }
+        });
+    });
 }
 
 // ============ EXPORTS ============
