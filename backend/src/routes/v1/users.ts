@@ -5,13 +5,13 @@
  */
 
 import { Router } from 'express'
-import { authMiddleware } from '../../middleware/auth.js'
-import type { AuthRequest } from '../../middleware/auth.js'
-import { validateRequest } from '../../middleware/validation.js'
-import { updateProfileSchema, updateNotificationPrefsSchema } from '../../schemas/index.js'
-import { UserModel, LoginActivityLogModel, NotificationPreferencesModel, AuditLogModel } from '../../models/index.js'
-import { createApiError } from '../../middleware/errorHandler.js'
 import { Types } from 'mongoose'
+import type { AuthRequest } from '../../middleware/auth.js'
+import { authMiddleware } from '../../middleware/auth.js'
+import { createApiError } from '../../middleware/errorHandler.js'
+import { validateRequest } from '../../middleware/validation.js'
+import { AuditLogModel, LoginActivityLogModel, NotificationPreferencesModel, UserModel } from '../../models/index.js'
+import { updateNotificationPrefsSchema, updateProfileSchema } from '../../schemas/index.js'
 
 export const usersRouter = Router()
 
@@ -26,6 +26,22 @@ usersRouter.get('/profile', authMiddleware, async (req: AuthRequest, res, next) 
 
     if (!user) {
       throw createApiError(404, 'User not found')
+    }
+
+    // Apply continuous time-decay (exponential decay function) for penalty Score
+    if (user.penaltyScore && user.penaltyScore > 0 && user.lastPenaltyUpdate) {
+      const now = new Date()
+      const daysPassed = (now.getTime() - new Date(user.lastPenaltyUpdate).getTime()) / (1000 * 3600 * 24)
+      if (daysPassed > 0) {
+        // e.g. decay rate of 0.05 per day (approx 5% daily decay)
+        let decayedScore = user.penaltyScore * Math.exp(-0.05 * daysPassed)
+        if (decayedScore < 0.1) decayedScore = 0
+
+        // Only update if it dropped by a notable fraction to prevent micro-DB writes, or always update for precision
+        user.penaltyScore = parseFloat(decayedScore.toFixed(2))
+        user.lastPenaltyUpdate = now
+        await user.save()
+      }
     }
 
     res.json(user)

@@ -5,7 +5,7 @@
  * to all descendant components via the {@link useAuth} hook.
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }) => {
                     institutionalId: userData.institutionalId,
                     visitorId: userData.visitorId,
                     createdAt: userData.createdAt,
+                    penaltyScore: userData.penaltyScore || 0,
                 };
 
                 setUser(mappedUser);
@@ -102,6 +103,7 @@ export const AuthProvider = ({ children }) => {
                 institutionalId: userData.institutionalId,
                 visitorId: userData.visitorId,
                 createdAt: userData.createdAt,
+                penaltyScore: userData.penaltyScore || 0,
             };
 
             setUser(mappedUser);
@@ -147,6 +149,7 @@ export const AuthProvider = ({ children }) => {
                 status: profileData.status,
                 institutionalId: profileData.institutionalId,
                 createdAt: profileData.createdAt,
+                penaltyScore: profileData.penaltyScore || 0,
             };
 
             setUser(mappedUser);
@@ -191,6 +194,7 @@ export const AuthProvider = ({ children }) => {
                 institutionalId: userData.institutionalId,
                 visitorId: userData.visitorId,
                 createdAt: userData.createdAt,
+                penaltyScore: userData.penaltyScore || 0,
             };
 
             setUser(mappedUser);

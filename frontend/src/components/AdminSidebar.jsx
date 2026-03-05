@@ -4,22 +4,22 @@
  * Shows admin-specific navigation links, user profile widget, and a link back to the user app.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { gsap } from 'gsap';
 import {
-    LayoutDashboard,
     FileText,
-    Users,
+    Home,
+    LayoutDashboard,
+    LogOut,
     MapPin,
     Settings,
-    LogOut,
-    ChevronRight,
     Shield,
-    Home,
+    Sparkles,
     User,
+    Users
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import LogoutConfirmModal from './LogoutConfirmModal';
 
 const AdminSidebar = () => {
@@ -65,6 +65,7 @@ const AdminSidebar = () => {
         { icon: FileText, label: 'Claims Management', path: '/admin/claims' },
         { icon: Users, label: 'User Management', path: '/admin/roles' },
         { icon: MapPin, label: 'Zone Management', path: '/admin/zones' },
+        { icon: Sparkles, label: 'Meta-FAISS Registry', path: '/admin/ai-matches' },
         { icon: Settings, label: 'AI Configuration', path: '/admin/ai-config' },
     ];
 

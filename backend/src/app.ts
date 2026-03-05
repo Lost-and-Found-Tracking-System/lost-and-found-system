@@ -4,11 +4,18 @@
  * cookie parsing), mounts API routes under `/api`, and attaches the centralized error handler.
  */
 
-import express from 'express'
-import cors from 'cors'
 import cookieParser from 'cookie-parser'
-import { router } from './routes/index.js'
+import cors from 'cors'
+import express from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.js'
+import { router } from './routes/index.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+// Resolved path: <project-root>/backend/uploads
+const uploadsDir = path.resolve(__dirname, '../../uploads')
 
 /**
  * Creates and configures a new Express application instance.
@@ -125,6 +132,9 @@ export function createApp() {
   });
 
   app.use('/api', router)
+
+  // Serve locally-stored uploaded images (dev fallback when Cloudinary is not configured)
+  app.use('/uploads', express.static(uploadsDir))
 
   // Error handler must be last
   app.use(errorHandler)

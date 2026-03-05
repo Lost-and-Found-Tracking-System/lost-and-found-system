@@ -3,58 +3,56 @@
  * @description Premium landing page showcasing 39+ visual effects with a future-tech aesthetic.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
     ArrowRight,
-    Search,
-    Package,
-    Sparkles,
-    ShieldCheck,
-    MapPin,
-    Zap,
-    Eye,
+    CheckCircle,
     ChevronDown,
+    Eye,
     Github,
     Globe,
+    MapPin,
+    Package,
+    Search,
+    ShieldCheck,
+    Sparkles,
     Users,
-    Clock,
-    CheckCircle
+    Zap
 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 // Import ALL premium effects
 import {
-    GlitchText,
-    ParticleCursor,
-    MorphingBlob,
-    WaveText,
     AuroraBackground,
-    NoiseOverlay,
-    SpotlightCursor,
     ElasticButton,
-    ScrambleLink,
-    FloatingElement,
+    GlitchText,
     GradientFlowText,
-    Typewriter,
     InfiniteMarquee,
-    RippleButton
+    MorphingBlob,
+    NoiseOverlay,
+    ParticleCursor,
+    RippleButton,
+    ScrambleLink,
+    SpotlightCursor,
+    Typewriter,
+    WaveText
 } from '../effects/PremiumEffects';
 
 import {
-    MeteorShower,
-    HolographicCard,
-    CyberpunkGrid,
-    NeonText,
-    PulseRings,
-    GradientBorderCard,
-    ScrollProgress,
-    TiltCard,
     AnimatedShapes,
-    ParticleExplosion,
+    BreathingCircle,
+    CyberpunkGrid,
     GlowingOrb,
-    BreathingCircle
+    GradientBorderCard,
+    HolographicCard,
+    MeteorShower,
+    NeonText,
+    ParticleExplosion,
+    PulseRings,
+    ScrollProgress,
+    TiltCard
 } from '../effects/AdvancedEffects';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -649,6 +647,15 @@ const Footer = () => {
 // MAIN LANDING PAGE
 // ============================================
 const LandingPage = () => {
+    const { user, logout } = useAuth();
+
+    // Reset login state when visiting landing page
+    useEffect(() => {
+        if (user) {
+            logout();
+        }
+    }, [user, logout]);
+
     return (
         <div className="bg-[#030712] text-white overflow-x-hidden selection:bg-primary-500/30 relative">
             {/* Global Effects */}

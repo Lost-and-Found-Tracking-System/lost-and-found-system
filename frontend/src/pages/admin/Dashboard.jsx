@@ -3,43 +3,35 @@
  * @description Admin dashboard with system stats, live activity feed, and quick-access links.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
-import AdminSidebar from '../../components/AdminSidebar';
 import { gsap } from 'gsap';
 import {
-    Users,
-    Package,
-    FileText,
-    CheckCircle,
-    Clock,
-    AlertTriangle,
-    TrendingUp,
-    TrendingDown,
     Activity,
-    BarChart3,
     ArrowUpRight,
-    Shield,
-    Zap,
-    Sparkles,
+    BarChart3,
+    CheckCircle,
+    FileText,
     Layers,
+    Package,
+    Shield,
+    Sparkles,
     Target,
-    PieChart
+    Users,
+    Zap
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import AdminSidebar from '../../components/AdminSidebar';
+import { useAuth } from '../../context/AuthContext';
 import {
-    MorphingBlob,
     GlitchText,
-    NeonText,
-    TiltCard,
     GradientBorderCard,
-    HolographicCard,
-    PulseRings,
-    ElasticButton,
     GradientFlowText,
-    ParticleExplosion
+    HolographicCard,
+    MorphingBlob,
+    PulseRings,
+    TiltCard
 } from '../../effects';
+import api from '../../services/api';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
@@ -391,8 +383,8 @@ const AdminDashboard = () => {
                                                     </div>
                                                     <span
                                                         className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${isApproval ? 'bg-emerald-500/20 text-emerald-400' :
-                                                                isRejection ? 'bg-red-500/20 text-red-400' :
-                                                                    ''
+                                                            isRejection ? 'bg-red-500/20 text-red-400' :
+                                                                ''
                                                             }`}
                                                         style={!isApproval && !isRejection ? {
                                                             background: `${color}20`,
@@ -426,6 +418,7 @@ const AdminDashboard = () => {
                                     { label: 'Manage Claims', path: '/admin/claims', icon: FileText, color: '#f59e0b', count: stats.pendingClaims },
                                     { label: 'User Management', path: '/admin/roles', icon: Users, color: '#8b5cf6' },
                                     { label: 'Zone Settings', path: '/admin/zones', icon: Target, color: '#0ea5e9' },
+                                    { label: 'Meta-FAISS Registry', path: '/admin/ai-matches', icon: Sparkles, color: '#ec4899' },
                                     { label: 'AI Configuration', path: '/admin/ai-config', icon: Sparkles, color: '#ec4899' }
                                 ].map((item, i) => {
                                     const Icon = item.icon;

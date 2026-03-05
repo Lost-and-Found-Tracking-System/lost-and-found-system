@@ -5,22 +5,23 @@
  * announcements, AI configuration, audit logs, and system maintenance triggers.
  */
 
-import { Router } from 'express'
 import type { Response } from 'express'
-import { authMiddleware } from '../../middleware/auth.js'
+import { Router } from 'express'
+import { Types } from 'mongoose'
 import type { AuthRequest } from '../../middleware/auth.js'
+import { authMiddleware } from '../../middleware/auth.js'
+import { createApiError } from '../../middleware/errorHandler.js'
 import {
-  UserModel,
+  AiConfigurationModel,
+  AiMatchModel,
+  AnnouncementModel,
   AuditLogModel,
   ClaimModel,
   ItemModel,
-  AiConfigurationModel,
-  AnnouncementModel,
+  NotificationModel,
   RoleChangeAuditModel,
-  NotificationModel
+  UserModel
 } from '../../models/index.js'
-import { createApiError } from '../../middleware/errorHandler.js'
-import { Types } from 'mongoose'
 
 export const adminRouter = Router()
 
@@ -439,6 +440,24 @@ adminRouter.put('/ai-config', async (req: AuthRequest, res, next) => {
     })
 
     res.json(config)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/**
+ * GET /api/v1/admin/ai-matches
+ * Get all AI-detected semantic matches
+ */
+adminRouter.get('/ai-matches', async (_req: AuthRequest, res, next) => {
+  try {
+    const matches = await AiMatchModel.find()
+      .populate('lostItemId')
+      .populate('foundItemId')
+      .sort({ similarityScore: -1 })
+      .limit(100)
+
+    res.json(matches)
   } catch (error) {
     next(error)
   }

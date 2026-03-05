@@ -1,11 +1,25 @@
 /**
  * @module services/uploadService
- * @description Image upload service using Cloudinary.
- * Handles single and batch uploads, image deletion, and URL optimization with transformations.
+ * @description Image upload service using local disk storage.
+ * Files are saved to `backend/uploads/` and served at `/uploads/<filename>`.
  */
 
-import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
-import type { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary'
+import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Resolved path: <project-root>/backend/uploads
+export const LOCAL_UPLOADS_DIR = path.resolve(__dirname, '../../uploads')
+
+function ensureUploadsDir() {
+    if (!fs.existsSync(LOCAL_UPLOADS_DIR)) {
+        fs.mkdirSync(LOCAL_UPLOADS_DIR, { recursive: true })
+    }
+}
 
 export interface UploadResult {
     url: string
@@ -17,109 +31,73 @@ export interface UploadResult {
     bytes: number
 }
 
-export interface UploadError {
-    message: string
-    code?: string
-}
-
 /**
- * Upload a single image to Cloudinary
+ * Upload a single image to local disk.
+ * Returns a localhost URL that can be used just like a Cloudinary URL.
  */
 export async function uploadImage(
     fileBuffer: Buffer,
     options?: {
         folder?: string
         filename?: string
-        transformation?: { width?: number; height?: number; crop?: string }
+        originalname?: string
     }
 ): Promise<UploadResult> {
-    if (!isCloudinaryConfigured()) {
-        throw new Error('Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.')
+    ensureUploadsDir()
+
+    const originalname = options?.originalname ?? options?.filename ?? 'upload'
+    const ext = path.extname(originalname).toLowerCase()
+    const safe = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'].includes(ext) ? ext : '.jpg'
+    const uid = crypto.randomBytes(12).toString('hex')
+    const filename = `${uid}${safe}`
+    const filepath = path.join(LOCAL_UPLOADS_DIR, filename)
+
+    fs.writeFileSync(filepath, fileBuffer)
+
+    const baseUrl = `http://localhost:${process.env.PORT || 3000}`
+    const url = `${baseUrl}/uploads/${filename}`
+
+    console.log(`[UploadService] Saved image locally: ${filepath}`)
+
+    return {
+        url,
+        secureUrl: url,
+        publicId: `local/${filename}`,
+        width: 0,
+        height: 0,
+        format: safe.replace('.', ''),
+        bytes: fileBuffer.length,
     }
-
-    return new Promise((resolve, reject) => {
-        const uploadOptions = {
-            folder: options?.folder || 'lostfound/items',
-            public_id: options?.filename,
-            resource_type: 'image' as const,
-            transformation: options?.transformation ? [options.transformation] : undefined,
-        }
-
-        cloudinary.uploader.upload_stream(
-            uploadOptions,
-            (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
-                if (error || !result) {
-                    reject(new Error(error?.message || 'Upload failed'))
-                    return
-                }
-
-                resolve({
-                    url: result.url,
-                    secureUrl: result.secure_url,
-                    publicId: result.public_id,
-                    width: result.width,
-                    height: result.height,
-                    format: result.format,
-                    bytes: result.bytes,
-                })
-            }
-        ).end(fileBuffer)
-    })
 }
 
 /**
- * Upload multiple images to Cloudinary
+ * Upload multiple images sequentially.
  */
 export async function uploadMultipleImages(
     files: { buffer: Buffer; originalname: string }[],
-    folder?: string
+    _folder?: string
 ): Promise<UploadResult[]> {
     const results: UploadResult[] = []
-
     for (const file of files) {
-        const result = await uploadImage(file.buffer, { folder })
-        results.push(result)
+        results.push(await uploadImage(file.buffer, { originalname: file.originalname }))
     }
-
     return results
 }
 
 /**
- * Delete an image from Cloudinary
+ * Delete a locally-stored image by its publicId (`local/<filename>`).
  */
 export async function deleteImage(publicId: string): Promise<boolean> {
-    if (!isCloudinaryConfigured()) {
-        throw new Error('Cloudinary is not configured')
-    }
-
+    const filename = publicId.replace(/^local\//, '')
+    const filepath = path.join(LOCAL_UPLOADS_DIR, filename)
     try {
-        const result = await cloudinary.uploader.destroy(publicId)
-        return result.result === 'ok'
-    } catch (error) {
-        console.error('Failed to delete image:', error)
+        if (fs.existsSync(filepath)) {
+            fs.unlinkSync(filepath)
+            console.log(`[UploadService] Deleted local image: ${filepath}`)
+        }
+        return true
+    } catch (err) {
+        console.error(`[UploadService] Failed to delete ${filepath}:`, err)
         return false
     }
-}
-
-/**
- * Get optimized URL for an image with transformations
- */
-export function getOptimizedUrl(
-    publicId: string,
-    options?: {
-        width?: number
-        height?: number
-        crop?: string
-        quality?: string | number
-        format?: string
-    }
-): string {
-    return cloudinary.url(publicId, {
-        secure: true,
-        width: options?.width,
-        height: options?.height,
-        crop: options?.crop || 'fill',
-        quality: options?.quality || 'auto',
-        fetch_format: options?.format || 'auto',
-    })
 }

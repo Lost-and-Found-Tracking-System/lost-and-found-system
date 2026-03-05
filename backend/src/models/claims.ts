@@ -4,8 +4,8 @@
  * Includes: Claims, Claim Conflicts, Claim Decisions, and Archived Claims.
  */
 
-import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
+import { model, Schema, Types } from 'mongoose'
 
 // ─── CLAIMS ────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const claimSchema = new Schema({
   claimedBy: { type: Types.ObjectId, ref: 'users' }, // Alias for claimantId, used in some contexts
   ownershipProofs: [{ type: String }],
   proofScore: { type: Number, required: true },
-  status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict'] },
+  status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict', 'suspicious'] },
   aiConfidenceScore: { type: Number },
   confidenceTier: { type: String, required: true, enum: ['full', 'partial', 'low'] },
   submittedAt: { type: Date, required: true },

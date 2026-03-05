@@ -9,13 +9,13 @@
 import cron from 'node-cron'
 import {
     dataRetentionQueue,
-    reminderQueue,
-    escalationQueue,
     emailQueue,
-    smsQueue,
+    escalationQueue,
     isQueuesEnabled,
+    reminderQueue,
+    smsQueue,
 } from '../config/queue.js'
-import { UserModel, ClaimModel, ItemModel, ArchivedClaimModel, DraftSubmissionModel } from '../models/index.js'
+import { ArchivedClaimModel, ClaimModel, DraftSubmissionModel, ItemModel, UserModel } from '../models/index.js'
 import { sendNotificationEmail } from './emailService.js'
 import { sendSms } from './smsService.js'
 
@@ -57,6 +57,18 @@ async function processCleanupDrafts(olderThanDays = 30): Promise<{ deletedCount:
         updatedAt: { $lt: cutoffDate },
     })
     return { deletedCount: result.deletedCount ?? 0 }
+}
+
+async function processDiminishPenalties(): Promise<{ updatedCount: number }> {
+    // Diminish all penalties > 0 by 1 every day
+    const result = await UserModel.updateMany(
+        { penaltyScore: { $gt: 0 } },
+        {
+            $inc: { penaltyScore: -1 },
+            $set: { lastPenaltyUpdate: new Date() }
+        }
+    )
+    return { updatedCount: result.modifiedCount ?? 0 }
 }
 
 async function processAdminPendingReminders(): Promise<{ sentCount: number }> {
@@ -212,12 +224,14 @@ export function initAllSchedulers(): void {
 
     // Daily at midnight: Data retention jobs
     cron.schedule('0 0 * * *', async () => {
-        console.log('📅 Running daily data retention jobs')
+        console.log('📅 Running daily data retention and penalty diminish jobs')
 
         if (isQueuesEnabled() && dataRetentionQueue) {
             dataRetentionQueue.add('archive-claims', { olderThanDays: 365 })
             dataRetentionQueue.add('cleanup-visitors', {})
             dataRetentionQueue.add('cleanup-drafts', { olderThanDays: 30 })
+            // Diminish penalties runs directly or we could add it to queue
+            try { await processDiminishPenalties() } catch (e) { }
         } else {
             // Direct execution fallback
             try {
@@ -227,6 +241,8 @@ export function initAllSchedulers(): void {
                 console.log(`  👤 Cleaned up ${visitorResult.deletedCount} expired visitors`)
                 const draftResult = await processCleanupDrafts()
                 console.log(`  📝 Cleaned up ${draftResult.deletedCount} old drafts`)
+                const penaltyResult = await processDiminishPenalties()
+                console.log(`  📉 Diminished penalties for ${penaltyResult.updatedCount} users`)
             } catch (error) {
                 console.error('Data retention job failed:', error)
             }

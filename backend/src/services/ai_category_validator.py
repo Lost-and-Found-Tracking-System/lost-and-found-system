@@ -13,22 +13,29 @@ logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 logging.getLogger("torch").setLevel(logging.ERROR)
 
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+
+GROQ_API_KEY="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"
 
 def run_inference(message):
+    if not GROQ_API_KEY:
+        raise Exception("GROQ_API_KEY environment variable is missing")
+        
     client = Groq(api_key=GROQ_API_KEY)
-
+    
+    # Use a standard Groq model that definitely exists
+    # and remove 'reasoning_effort' which belongs to OpenAI o1 only.
     completion = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": message}],
-        temperature=1,
+        temperature=0.1,  # Low temperature for more consistent validation
         max_completion_tokens=8192,
         top_p=1,
-        reasoning_effort="high",
-        stream=True,  # ✅ MATCH SECOND FILE
+        reasoning_effort="medium",
+        stream=True,
         stop=None
     )
-
+    
     overallResult = ""
     for chunk in completion:
         result = chunk.choices[0].delta.content

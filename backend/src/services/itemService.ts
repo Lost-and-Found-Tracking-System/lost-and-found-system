@@ -4,9 +4,10 @@
  * Handles item submission, draft management, zone validation, retrieval, and advanced search.
  */
 
-import { ItemModel, DraftSubmissionModel, CampusZoneModel } from '../models/index.js'
 import crypto from 'crypto'
 import { Types } from 'mongoose'
+import { CampusZoneModel, DraftSubmissionModel, ItemModel } from '../models/index.js'
+import { processItemImage } from './embeddingService.js'
 
 /** Input data for submitting a lost/found item report */
 
@@ -84,7 +85,24 @@ export async function submitItem(input: SubmitItemInput) {
   })
 
   await item.save()
-  return item
+
+  // Run AI embedding synchronously so the result can be returned to the caller
+  let embeddingResult = null
+  if (item.images && item.images.length > 0) {
+    try {
+      embeddingResult = await processItemImage(
+        item._id.toString(),
+        item.images[0],
+        item.itemAttributes.description,
+        item.trackingId,
+        item.itemAttributes.category
+      )
+    } catch (err) {
+      console.error(`AI processing error for item ${item._id}:`, err)
+    }
+  }
+
+  return { item, embeddingResult }
 }
 
 export async function submitOrganizationItem(input: OrganizationItemInput) {
@@ -113,6 +131,18 @@ export async function submitOrganizationItem(input: OrganizationItemInput) {
   })
 
   await item.save()
+
+  // Trigger AI processing asynchronously
+  if (item.images && item.images.length > 0) {
+    processItemImage(
+      item._id.toString(),
+      item.images[0],
+      item.itemAttributes.description,
+      item.trackingId,
+      item.itemAttributes.category
+    ).catch((err: Error) => console.error(`AI processing error for item ${item._id}:`, err))
+  }
+
   return item
 }
 

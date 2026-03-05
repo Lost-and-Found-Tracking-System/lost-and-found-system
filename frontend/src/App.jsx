@@ -5,29 +5,30 @@
  */
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
+import Dashboard from './pages/Dashboard';
+import ItemDetails from './pages/ItemDetails';
+import ItemInventory from './pages/ItemInventory';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
-import Register from './pages/Register';
-import VisitorRegister from './pages/VisitorRegister';
-import Dashboard from './pages/Dashboard';
-import ReportItem from './pages/ReportItem';
-import ItemInventory from './pages/ItemInventory';
-import ItemDetails from './pages/ItemDetails';
-import SubmitClaim from './pages/SubmitClaim';
 import MyClaims from './pages/MyClaims';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
+import Register from './pages/Register';
+import ReportItem from './pages/ReportItem';
+import SubmitClaim from './pages/SubmitClaim';
+import VisitorRegister from './pages/VisitorRegister';
 
 // Admin Pages
+import AIConfig from './pages/admin/AIConfig';
+import AiMatches from './pages/admin/AiMatches';
+import ClaimsManagement from './pages/admin/Claims';
 import AdminDashboard from './pages/admin/Dashboard';
 import RoleManagement from './pages/admin/RoleManagement';
 import ZoneManagement from './pages/admin/ZoneManagement';
-import ClaimsManagement from './pages/admin/Claims';
-import AIConfig from './pages/admin/AIConfig';
 
 /**
  * Route guard that redirects unauthenticated users to `/login`
@@ -214,6 +215,14 @@ function AppRoutes() {
                 element={
                     <ProtectedRoute allowedRoles={['admin', 'delegated_admin']}>
                         <ClaimsManagement />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/ai-matches"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'delegated_admin']}>
+                        <AiMatches />
                     </ProtectedRoute>
                 }
             />

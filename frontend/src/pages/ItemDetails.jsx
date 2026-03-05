@@ -3,49 +3,40 @@
  * @description Item detail view with image gallery, claim submission, and status timeline.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/Sidebar';
 import { gsap } from 'gsap';
 import {
-    Package,
-    MapPin,
-    Calendar,
-    Tag,
-    User,
-    Clock,
-    ArrowLeft,
-    FileText,
-    MessageCircle,
     AlertTriangle,
+    ArrowLeft,
+    Calendar,
+    Camera,
     CheckCircle,
     ChevronLeft,
     ChevronRight,
-    Share2,
-    Flag,
-    Sparkles,
+    Clock,
     Eye,
-    Zap,
+    FileText,
     Loader2,
+    MapPin,
+    Package,
     Send,
-    Camera,
-    X,
-    ImageIcon
+    Sparkles,
+    Tag,
+    X
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import {
-    MorphingBlob,
-    GlitchText,
-    NeonText,
-    TiltCard,
-    GradientBorderCard,
     ElasticButton,
-    PulseRings,
-    ParticleExplosion,
+    GradientBorderCard,
     HolographicCard,
-    RippleButton
+    MorphingBlob,
+    NeonText,
+    PulseRings,
+    TiltCard
 } from '../effects';
+import api from '../services/api';
 
 const ItemDetails = () => {
     const { id } = useParams();
@@ -61,6 +52,8 @@ const ItemDetails = () => {
     const [claimSubmitting, setClaimSubmitting] = useState(false);
     const [claimSuccess, setClaimSuccess] = useState(false);
     const [claimError, setClaimError] = useState('');
+    const [matches, setMatches] = useState([]);
+    const [loadingMatches, setLoadingMatches] = useState(false);
 
     const containerRef = useRef(null);
     const imageRef = useRef(null);
@@ -72,10 +65,16 @@ const ItemDetails = () => {
             try {
                 const res = await api.get(`/v1/items/${id}`);
                 setItem(res.data);
+
+                // Fetch AI Matches
+                setLoadingMatches(true);
+                const matchesRes = await api.get(`/v1/items/${id}/matches`);
+                setMatches(matchesRes.data);
             } catch (error) {
-                console.error('Failed to fetch item:', error);
+                console.error('Failed to fetch item details or matches:', error);
                 setError('Item not found');
             } finally {
+                setLoadingMatches(false);
                 setLoading(false);
             }
         };
@@ -526,17 +525,62 @@ const ItemDetails = () => {
 
                             </div>
 
-                            {/* AI Match Indicator */}
-                            {item.aiMatchScore && (
+                            {/* AI Match Analysis */}
+                            {(item.aiMatchScore || matches.length > 0) && (
                                 <div className="mt-8 p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/20">
-                                    <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-3 mb-4">
                                         <Sparkles size={24} className="text-purple-400" />
-                                        <span className="font-bold text-white">AI Match Analysis</span>
+                                        <span className="font-bold text-white">AI Match Analysis & FAISS Search</span>
                                     </div>
-                                    <p className="text-slate-400 text-sm">
-                                        Our AI has found potential matches for this item with a confidence score of{' '}
-                                        <NeonText color="#a855f7">{item.aiMatchScore}%</NeonText>
-                                    </p>
+
+                                    {item.aiMatchScore && (
+                                        <p className="text-slate-400 text-sm mb-6">
+                                            Our AI has found potential matches for this item with an overall confidence score of{' '}
+                                            <NeonText color="#a855f7">{item.aiMatchScore}%</NeonText>
+                                        </p>
+                                    )}
+
+                                    {matches.length > 0 ? (
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Top correlated records via FAISS</h4>
+                                            <div className="grid gap-4">
+                                                {matches.map((match, idx) => {
+                                                    const matchedItem = item.submissionType === 'lost' ? match.foundItemId : match.lostItemId;
+                                                    if (!matchedItem) return null;
+
+                                                    return (
+                                                        <Link
+                                                            key={match._id}
+                                                            to={`/inventory/${matchedItem._id}`}
+                                                            className="match-card group p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-purple-500/50 transition-all flex items-center gap-4"
+                                                        >
+                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-900 flex-shrink-0">
+                                                                {matchedItem.images?.length > 0 ? (
+                                                                    <img src={matchedItem.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center">
+                                                                        <Package size={24} className="text-slate-700" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-grow min-w-0">
+                                                                <h5 className="font-bold text-white truncate">{matchedItem.itemAttributes?.category || 'Uncategorized'}</h5>
+                                                                <p className="text-slate-400 text-xs truncate">{matchedItem.itemAttributes?.description}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-xs text-slate-500 mb-1">Correlation</div>
+                                                                <div className="font-mono font-bold text-purple-400">
+                                                                    {Math.round(match.similarityScore)}%
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        !loadingMatches && <p className="text-slate-500 text-sm italic">No semantic match pairs found in database for this item yet.</p>
+                                    )}
                                 </div>
                             )}
                         </div>

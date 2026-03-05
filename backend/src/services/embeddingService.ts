@@ -17,10 +17,13 @@ import { execFile } from 'child_process'
 import { Types } from 'mongoose'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { AiConfigurationModel, AiMatchModel, ItemModel } from '../models/index.js'
+import { AiConfigurationModel, AiMatchModel, ItemEmbeddingModel, ItemModel } from '../models/index.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Python interpreter that has groq + transformers + sentence_transformers installed
+const PYTHON_BIN = '/opt/miniconda3/envs/lightenv/bin/python3'
 
 // ============ TYPE DEFINITIONS ============
 
@@ -57,6 +60,7 @@ export interface ProcessingResult {
     yoloResult: ObjectDetectionResult
     imageEmbedding: number[]
     textEmbedding: number[]
+    hybridEmbedding: number[]
     savedToDatabase: boolean
     processingTimeMs: number
 }
@@ -131,26 +135,33 @@ interface ItemDocument {
 const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models'
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || ''
 
-const ROBOFLOW_API_URL = 'https://serverless.roboflow.com/ai-gym/workflows/stationaryclassification'
-const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY || 'VQa4xNRhy58apI1aMTvI'
-
-// YOLOv8 Model configurations
+// YOLOv8 Model configurations (EXCLUSIVELY USE THE COMPUTER APPARATUS DETECTOR)
 const YOLO_MODELS = {
-    personalItems: {
-        modelId: 'IndUSV/yoloV8_SE_3',
-        description: 'Mobile phones, suitcases, handbags',
-        labels: ['phone', 'mobile_phone', 'suitcase', 'handbag', 'bag'],
-    },
-    electronics: {
-        modelId: 'IndUSV/Yolov8_Screen_Detection',
-        description: 'Electronic gadgets and screens',
-        labels: ['screen', 'laptop', 'tablet', 'monitor', 'tv', 'display'],
-    },
     computerApparatus: {
         modelId: 'IndUSV/computerApparatus-detector',
         description: 'Keyboard, mouse, monitor',
         labels: ['keyboard', 'mouse', 'monitor', 'computer'],
     },
+}
+
+
+export interface ImageDuplicateCheckResult {
+    /** Whether more than one object of the SAME semantic class was found */
+    hasDuplicates: boolean
+    /** The class label that appears multiple times (if any) */
+    duplicateClass: string | null
+    /** How many of that class were detected */
+    duplicateCount: number
+    /** All detected objects (label + confidence) */
+    detectedObjects: Array<{ label: string; confidence: number }>
+    /** Labels that semantically matched the item title (with their scores) */
+    matchedLabels: Array<{ label: string; similarity: number }>
+    /** Frequency map of normalized labels found in the image */
+    labelCounts: Record<string, number>
+    /** Human-readable warning, or null if no issue */
+    warning: string | null
+    /** Whether the image appears to contain the reported item type at all */
+    itemDetected: boolean
 }
 
 // Default AI configuration weights
@@ -186,18 +197,31 @@ const STOP_WORDS = new Set([
 
 // ============ FUNCTION 1: YOLO OBJECT DETECTION ============
 
-/**
- * Run object detection using a HuggingFace YOLOv8 model
- */
 async function detectWithHuggingFaceModel(
     imageUrl: string,
-    modelId: string
+    modelId: string,
+    prefetchedBuffer?: Buffer
 ): Promise<DetectedObject[]> {
+    if (!HUGGINGFACE_API_KEY) {
+        console.error(`[HF Inference API] Error: HUGGINGFACE_API_KEY is missing in your .env file. Models cannot detect objects.`)
+        return []
+    }
+
     try {
-        // Fetch image as blob
-        const imageResponse = await fetch(imageUrl)
-        const imageBlob = await imageResponse.blob()
-        const imageBuffer = Buffer.from(await imageBlob.arrayBuffer())
+        // Use pre-fetched buffer if provided (avoids redundant fetches in parallel calls)
+        let imageBuffer: Buffer
+        if (prefetchedBuffer) {
+            // Slice to ensure this call owns a fresh copy of the underlying memory
+            imageBuffer = Buffer.from(prefetchedBuffer)
+        } else {
+            const imageResponse = await fetch(imageUrl)
+            if (!imageResponse.ok) {
+                console.error(`[HF Proxy] Failed to fetch image: ${imageResponse.statusText}`)
+                return []
+            }
+            const imageBlob = await imageResponse.blob()
+            imageBuffer = Buffer.from(await imageBlob.arrayBuffer())
+        }
 
         const response = await fetch(`${HUGGINGFACE_API_URL}/${modelId}`, {
             method: 'POST',
@@ -205,11 +229,12 @@ async function detectWithHuggingFaceModel(
                 Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
                 'Content-Type': 'application/octet-stream',
             },
-            body: imageBuffer,
+            body: new Uint8Array(imageBuffer),
         })
 
         if (!response.ok) {
-            console.error(`HuggingFace API error for ${modelId}: ${response.statusText}`)
+            const errText = await response.text().catch(() => response.statusText)
+            console.error(`HuggingFace API error (${modelId}): ${response.status} ${errText}`)
             return []
         }
 
@@ -236,60 +261,6 @@ async function detectWithHuggingFaceModel(
     }
 }
 
-/**
- * Run stationery detection using Roboflow API
- */
-async function detectStationery(imageUrl: string): Promise<DetectedObject[]> {
-    try {
-        const response = await fetch(ROBOFLOW_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                api_key: ROBOFLOW_API_KEY,
-                inputs: {
-                    image: { type: 'url', value: imageUrl },
-                },
-            }),
-        })
-
-        if (!response.ok) {
-            console.error(`Roboflow API error: ${response.statusText}`)
-            return []
-        }
-
-        const result = (await response.json()) as {
-            outputs?: Array<{
-                predictions?: Array<{
-                    class: string
-                    confidence: number
-                    x: number
-                    y: number
-                    width: number
-                    height: number
-                }>
-            }>
-        }
-
-        const predictions = result.outputs?.[0]?.predictions || []
-
-        return predictions.map((p) => ({
-            label: p.class.toLowerCase(),
-            confidence: p.confidence,
-            bbox: [p.x - p.width / 2, p.y - p.height / 2, p.width, p.height] as [
-                number,
-                number,
-                number,
-                number,
-            ],
-            model: 'roboflow-stationery',
-        }))
-    } catch (error) {
-        console.error('Error with Roboflow stationery detection:', error)
-        return []
-    }
-}
 
 /**
  * Calculate Intersection over Union (IoU) for two bounding boxes
@@ -321,8 +292,10 @@ function areSimilarLabels(label1: string, label2: string): boolean {
     const synonyms: Record<string, string[]> = {
         phone: ['mobile_phone', 'smartphone', 'cellphone'],
         laptop: ['notebook', 'computer'],
-        bag: ['handbag', 'backpack', 'suitcase', 'luggage'],
+        bag: ['handbag', 'backpack', 'suitcase', 'luggage', 'pocketbook', 'purse'],
         monitor: ['screen', 'display', 'tv'],
+        mouse: ['pointing_device', 'trackpad'],
+        keyboard: ['numeric_keyboard', 'mechanical_keyboard'],
     }
 
     if (label1 === label2) return true
@@ -373,16 +346,11 @@ function deduplicateDetections(objects: DetectedObject[], iouThreshold = 0.5): D
 export async function classifyImageWithYOLO(imageUrl: string): Promise<ObjectDetectionResult> {
     const startTime = Date.now()
 
-    // Run all models in parallel
-    const [personalItems, electronics, computerApparatus, stationery] = await Promise.all([
-        detectWithHuggingFaceModel(imageUrl, YOLO_MODELS.personalItems.modelId),
-        detectWithHuggingFaceModel(imageUrl, YOLO_MODELS.electronics.modelId),
-        detectWithHuggingFaceModel(imageUrl, YOLO_MODELS.computerApparatus.modelId),
-        detectStationery(imageUrl),
-    ])
+    // Run only the requested model
+    const computerApparatus = await detectWithHuggingFaceModel(imageUrl, YOLO_MODELS.computerApparatus.modelId)
 
-    // Aggregate all detections
-    const allObjects = [...personalItems, ...electronics, ...computerApparatus, ...stationery]
+    // Aggregate detections
+    const allObjects = [...computerApparatus]
 
     // Deduplicate overlapping detections (same object detected by multiple models)
     const deduplicatedObjects = deduplicateDetections(allObjects)
@@ -403,7 +371,52 @@ export async function classifyImageWithYOLO(imageUrl: string): Promise<ObjectDet
 // ============ FUNCTION 2: OPENCLIP IMAGE EMBEDDING ============
 
 /**
+ * Generate hybrid embedding using OpenCLIP via local Python script
+ */
+export async function generateOpenClipEmbeddingPython(
+    text: string,
+    imageUrl?: string
+): Promise<number[]> {
+    return new Promise((resolve) => {
+        const pythonScriptPath = path.join(__dirname, 'open_clip_service.py')
+
+        let localPathOrUrl = imageUrl;
+        if (localPathOrUrl && localPathOrUrl.includes('localhost:3000/uploads/')) {
+            const filename = localPathOrUrl.split('/uploads/').pop();
+            if (filename) {
+                localPathOrUrl = path.resolve(__dirname, '../../uploads', filename);
+            }
+        }
+
+        const inputData = JSON.stringify({ text, image_url: localPathOrUrl })
+
+        execFile(PYTHON_BIN, [pythonScriptPath, inputData], (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing open_clip_service.py: ${error.message}`)
+                return resolve([])
+            }
+            if (stderr) {
+                console.warn(`open_clip_service.py stderr: ${stderr}`)
+            }
+
+            try {
+                const result = JSON.parse(stdout)
+                if (result.error) {
+                    console.error(`OpenCLIP Python Error: ${result.error}`)
+                    return resolve([])
+                }
+                resolve(result.embedding)
+            } catch (parseError) {
+                console.error(`Error parsing OpenCLIP output: ${parseError}`)
+                resolve([])
+            }
+        })
+    })
+}
+
+/**
  * FUNCTION 2: Generate image embedding using OpenCLIP via HuggingFace
+ * @deprecated Use generateOpenClipEmbeddingPython for hybrid embeddings
  */
 export async function embedImageWithOpenCLIP(imageUrl: string): Promise<number[]> {
     try {
@@ -587,9 +600,11 @@ export async function saveEmbeddingsToDatabase(
     itemId: string,
     yoloResult: ObjectDetectionResult,
     imageEmbedding: number[],
-    textEmbedding: TextEmbedding
+    textEmbedding: TextEmbedding,
+    hybridEmbedding: number[] = []
 ): Promise<boolean> {
     try {
+        // Update main item record with detection results and traditional embeddings
         await ItemModel.findByIdAndUpdate(itemId, {
             $set: {
                 'aiMetadata.detectedObjects': yoloResult.objects.map(o => o.label),
@@ -600,11 +615,29 @@ export async function saveEmbeddingsToDatabase(
             },
         })
 
+        // Save hybrid OpenCLIP embedding to its own collection
+        if (hybridEmbedding.length > 0) {
+            await ItemEmbeddingModel.findOneAndUpdate(
+                { itemId: new Types.ObjectId(itemId) },
+                {
+                    itemId: new Types.ObjectId(itemId),
+                    embedding: hybridEmbedding,
+                    metadata: {
+                        modelName: 'hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K',
+                        sourceFields: ['title', 'description', 'category', 'image'],
+                        generatedAt: new Date(),
+                    },
+                },
+                { upsert: true }
+            )
+        }
+
         console.log(`Embeddings saved for item ${itemId}:`, {
             detectedObjects: yoloResult.objects.length,
             primaryClass: yoloResult.primaryClass,
             imageEmbeddingDim: imageEmbedding.length,
             textEmbeddingDim: textEmbedding.embedding.length,
+            hybridEmbeddingDim: hybridEmbedding.length,
         })
 
         return true
@@ -620,14 +653,16 @@ export async function saveEmbeddingsToDatabase(
  * FUNCTION 5: Process item image through the complete pipeline
  * Calls functions 1-4 in order:
  * 1. YOLO detection
- * 2. OpenCLIP embedding
+ * 2. OpenCLIP hybrid embedding
  * 3. TF-IDF embedding
  * 4. Save to database
  */
 export async function processItemImage(
     itemId: string,
     imageUrl: string,
-    description: string
+    description: string,
+    title: string = '',
+    category: string = ''
 ): Promise<ProcessingResult> {
     const startTime = Date.now()
 
@@ -636,24 +671,30 @@ export async function processItemImage(
     const yoloResult = await classifyImageWithYOLO(imageUrl)
     console.log(`[${itemId}] YOLO detected ${yoloResult.objects.length} objects, primary: ${yoloResult.primaryClass}`)
 
-    // Step 2: OpenCLIP image embedding
-    console.log(`[${itemId}] Generating OpenCLIP embedding...`)
-    const imageEmbedding = await embedImageWithOpenCLIP(imageUrl)
-    console.log(`[${itemId}] OpenCLIP embedding dimension: ${imageEmbedding.length}`)
+    // Step 2: OpenCLIP hybrid embedding (Python script)
+    // Combine title, description and category for text context
+    const textContext = `${title} ${category} ${description}`.trim()
+    console.log(`[${itemId}] Generating hybrid OpenCLIP embedding via Python...`)
+    const hybridEmbedding = await generateOpenClipEmbeddingPython(textContext, imageUrl)
+    console.log(`[${itemId}] Hybrid OpenCLIP embedding dimension: ${hybridEmbedding.length}`)
 
-    // Step 3: TF-IDF text embedding
+    // Step 3: TF-IDF text embedding (Maintaining legacy for now)
     console.log(`[${itemId}] Generating TF-IDF embedding...`)
     const textEmbedding = embedTextWithTFIDF(description)
     textEmbedding.itemId = itemId
     console.log(`[${itemId}] TF-IDF embedding dimension: ${textEmbedding.embedding.length}`)
 
+    // We no longer call the deprecated HuggingFace API for OpenCLIP,
+    // we use the local Python hybrid embedding instead.
+    const legacyImageEmbedding = hybridEmbedding
     // Step 4: Save to database
     console.log(`[${itemId}] Saving embeddings to database...`)
     const savedToDatabase = await saveEmbeddingsToDatabase(
         itemId,
         yoloResult,
-        imageEmbedding,
-        textEmbedding
+        legacyImageEmbedding,
+        textEmbedding,
+        hybridEmbedding
     )
 
     const processingTimeMs = Date.now() - startTime
@@ -662,8 +703,9 @@ export async function processItemImage(
     return {
         itemId,
         yoloResult,
-        imageEmbedding,
+        imageEmbedding: legacyImageEmbedding,
         textEmbedding: textEmbedding.embedding,
+        hybridEmbedding,
         savedToDatabase,
         processingTimeMs,
     }
@@ -1443,7 +1485,7 @@ export async function validateTitleCategory(
     const pythonScriptPath = path.join(__dirname, 'ai_category_validator.py');
 
     return new Promise((resolve) => {
-        execFile('python3', [pythonScriptPath, title, description, category], (error, stdout, stderr) => {
+        execFile(PYTHON_BIN, [pythonScriptPath, title, description, category], { env: process.env }, (error, stdout, stderr) => {
             if (error) {
                 console.error(`[AI Python Bridge] Error: ${error.message}`);
                 console.error(`[AI Python Bridge] Stderr: ${stderr}`);
@@ -1474,6 +1516,259 @@ export async function validateTitleCategory(
     });
 }
 
+/**
+ * Minimum MiniLM cosine-similarity score (0-100 scale) for a YOLO label
+ * to be considered semantically matching the user's item.
+ * Mirrors the threshold in ai_category_validator.py.
+ */
+const SEMANTIC_MATCH_THRESHOLD = 35
+
+/**
+ * Call validate_image_objects.py to get MiniLM similarity scores between
+ * the item text and each unique YOLO-detected label.
+ *
+ * Uses the exact same sentence-transformer approach as ai_category_validator.py.
+ */
+function getSemanticLabelScores(
+    itemTitle: string,
+    itemDescription: string,
+    labels: string[]
+): Promise<Array<{ label: string; similarity: number }>> {
+    const scriptPath = path.join(__dirname, 'validate_image_objects.py')
+    const labelsJson = JSON.stringify(labels)
+
+    return new Promise((resolve) => {
+        execFile(
+            PYTHON_BIN,
+            [scriptPath, itemTitle, itemDescription, labelsJson],
+            { timeout: 120_000, env: process.env },
+            (error, stdout, stderr) => {
+                if (error) {
+                    console.error('[ImageValidator] Python error:', error.message)
+                    console.error('[ImageValidator] Stderr:', stderr)
+                    // Fall back: return 0 similarity for all labels
+                    resolve(labels.map(l => ({ label: l, similarity: 0 })))
+                    return
+                }
+                try {
+                    const lines = stdout.trim().split('\n')
+                    const last = lines[lines.length - 1]
+                    const parsed = JSON.parse(last)
+                    resolve(parsed.results ?? labels.map(l => ({ label: l, similarity: 0 })))
+                } catch (e) {
+                    console.error('[ImageValidator] Parse error:', e, 'Raw:', stdout)
+                    resolve(labels.map(l => ({ label: l, similarity: 0 })))
+                }
+            }
+        )
+    })
+}
+
+/**
+ * Validate an uploaded image using ALL four YOLO models, then semantically match
+ * detected classes to the user's reported item via MiniLM.
+ *
+ * Algorithm:
+ *  1. Run all 4 YOLO detectors in parallel.
+ *  2. NMS-deduplicate across all detections.
+ *  3. For each unique normalised label, record the MAX confidence seen across models.
+ *     (Labels undetected by a model contribute 0 — the max naturally captures the best model.)
+ *  4. Call the MiniLM Python script (same logic as ai_category_validator.py) to compute
+ *     semantic similarity between the item title/description and each detected label.
+ *  5. Identify the BEST-MATCHING label (highest MiniLM similarity).
+ *  6. If best similarity < SEMANTIC_MATCH_THRESHOLD (35) → item type not detected → soft warn.
+ *  7. If best similarity ≥ threshold → count how many instances of that label exist.
+ *     If count > 1 → duplicate warning.
+ */
+export async function validateImageForCategory(
+    imageUrl: string,
+    _category: string,          // kept for API compatibility, no longer drives model selection
+    title: string = '',
+    description: string = ''
+): Promise<ImageDuplicateCheckResult> {
+
+    // ── Step 1: Run EXCLUSIVELY the requested Computer Apparatus model ──────────
+    const computerApparatus = await detectWithHuggingFaceModel(
+        imageUrl,
+        'IndUSV/computerApparatus-detector'
+    )
+
+    const allObjects = [...computerApparatus]
+
+    console.log(`[ImageValidator] Detections from Computer Apparatus model: ${computerApparatus.length}`)
+
+    // ── Step 2: NMS-deduplicate ─────────────────────────────────────────────
+    const deduped = deduplicateDetections(allObjects)
+
+    // ── Step 3: Compute Scores per Label ──────────────────────────────────
+    // Build: normLabel -> { maxConfidence, count }
+    const labelMap: Record<string, {
+        maxConfidence: number,
+        count: number
+    }> = {}
+
+    for (const obj of deduped) {
+        const norm = normaliseLabelForCount(obj.label)
+        if (!labelMap[norm]) {
+            labelMap[norm] = {
+                maxConfidence: 0,
+                count: 0
+            }
+        }
+
+        labelMap[norm].maxConfidence = Math.max(labelMap[norm].maxConfidence, obj.confidence)
+        labelMap[norm].count++
+    }
+
+    const uniqueNormLabels = Object.keys(labelMap)
+    const detectedObjects = deduped.map(o => ({ label: o.label, confidence: o.confidence }))
+    const labelCounts = Object.fromEntries(uniqueNormLabels.map(l => [l, labelMap[l].count]))
+
+    console.log(`\n========== YOLO DETECTION SUMMARY (CompApp Model) ==========`)
+    if (uniqueNormLabels.length === 0) {
+        console.log(`   NO OBJECTS DETECTED BY IndUSV/computerApparatus-detector`)
+        if (!HUGGINGFACE_API_KEY) {
+            console.warn(`   ⚠️  WARNING: HUGGINGFACE_API_KEY is missing in .env!`)
+        }
+    } else {
+        console.log(`   Detected ${uniqueNormLabels.length} unique object types:`)
+        uniqueNormLabels.forEach(l => {
+            console.log(`   - ${l.padEnd(15)}: x${labelMap[l].count} (Max Conf: ${labelMap[l].maxConfidence.toFixed(2)})`)
+        })
+    }
+    console.log(`============================================================\n`)
+
+    if (uniqueNormLabels.length === 0) {
+        return {
+            hasDuplicates: false,
+            duplicateClass: null,
+            duplicateCount: 0,
+            detectedObjects: [],
+            matchedLabels: [],
+            labelCounts: {},
+            itemDetected: false,
+            warning: title
+                ? `No objects were detected in this image by any of our AI models. ` +
+                `Please upload a clearer photo that shows the "${title}" prominently.`
+                : null,
+        }
+    }
+
+    // ── Step 4: MiniLM semantic scoring ────────────────────────────────────
+    // Skip if no item context provided (e.g. category-only call without title)
+    let semanticScores: Array<{ label: string; similarity: number }> = []
+    if (title || description) {
+        semanticScores = await getSemanticLabelScores(title, description, uniqueNormLabels)
+        console.log('[ImageValidator] MiniLM semantic scores:', JSON.stringify(semanticScores))
+    } else {
+        // No title — assign zero similarity to all (we can still check for duplicates structurally)
+        semanticScores = uniqueNormLabels.map(l => ({ label: l, similarity: 0 }))
+    }
+
+    // ── Step 5: Best-matching label (highest MiniLM similarity) ────────────
+    const bestMatch = semanticScores.reduce<{ label: string; similarity: number } | null>(
+        (best, curr) => (!best || curr.similarity > best.similarity) ? curr : best,
+        null
+    )
+
+    const matchedLabels = semanticScores.filter(s => s.similarity >= SEMANTIC_MATCH_THRESHOLD)
+
+    console.log(`[ImageValidator] Best match: ${bestMatch?.label} (sim=${bestMatch?.similarity?.toFixed(1)}), threshold=${SEMANTIC_MATCH_THRESHOLD}`)
+
+    // ── Step 6: Threshold check ─────────────────────────────────────────────
+    const itemDetected = !!(title || description)
+        ? (bestMatch !== null && bestMatch.similarity >= SEMANTIC_MATCH_THRESHOLD)
+        : true   // No title provided — assume detected (structural check only)
+
+    if (!itemDetected) {
+        // Best semantic match is below threshold — the item may not be in this photo
+        const topRaw = deduped[0]?.label.replace(/_/g, ' ') ?? 'an unrecognised object'
+        return {
+            hasDuplicates: false,
+            duplicateClass: null,
+            duplicateCount: 0,
+            detectedObjects,
+            matchedLabels,
+            labelCounts,
+            itemDetected: false,
+            warning:
+                `The image seems to contain "${topRaw}" (AI confidence: ${(bestMatch?.similarity ?? 0).toFixed(0)}%), ` +
+                `which doesn't closely match "${title}". ` +
+                `Please upload a photo that clearly shows your item.`,
+        }
+    }
+
+    // ── Step 7: Duplicate count for best-matching class ─────────────────────
+    const bestNorm = bestMatch!.label
+    const bestEntry = labelMap[bestNorm]
+
+    if (bestEntry.count > 1) {
+        const friendlyName = bestNorm.replace(/_/g, ' ')
+        return {
+            hasDuplicates: true,
+            duplicateClass: bestNorm,
+            duplicateCount: bestEntry.count,
+            detectedObjects,
+            matchedLabels,
+            labelCounts,
+            itemDetected: true,
+            warning:
+                `This image contains ${bestEntry.count} objects classified as "${friendlyName}" ` +
+                `(MiniLM similarity to "${title}": ${bestMatch!.similarity.toFixed(0)}%). ` +
+                `Please upload a photo showing only the single item you are reporting.`,
+        }
+    }
+
+    // All good — exactly one matching item detected
+    return {
+        hasDuplicates: false,
+        duplicateClass: null,
+        duplicateCount: 0,
+        detectedObjects,
+        matchedLabels,
+        labelCounts,
+        itemDetected: true,
+        warning: null,
+    }
+}
+
+/**
+ * Normalise synonym labels so counting works across model differences.
+ * e.g. "mobile_phone" → "phone", "notebook" → "laptop"
+ */
+function normaliseLabelForCount(label: string): string {
+    const map: Record<string, string> = {
+        mobile_phone: 'phone',
+        smartphone: 'phone',
+        cellphone: 'phone',
+        notebook: 'laptop',
+        computer: 'laptop',
+        display: 'monitor',
+        tv: 'monitor',
+        screen: 'monitor',
+        mouse: 'mouse',
+        keyboard: 'keyboard',
+        'pointing_device': 'mouse',
+        'trackpad': 'mouse',
+        'numeric_keyboard': 'keyboard',
+        'mechanical_keyboard': 'keyboard',
+        handbag: 'bag',
+        backpack: 'bag',
+        luggage: 'bag',
+        suitcase: 'bag',
+        pocketbook: 'bag',
+        wallet: 'personal_accessory',
+        purse: 'bag',
+        bottle: 'container',
+        water_bottle: 'container',
+        book: 'document',
+        magazine: 'document',
+        key: 'keys',
+        car_key: 'keys',
+    }
+    return map[label] ?? label
+}
+
 // ============ EXPORTS ============
 
 export {
@@ -1484,3 +1779,4 @@ export {
     generateMatchExplanation,
     YOLO_MODELS
 }
+

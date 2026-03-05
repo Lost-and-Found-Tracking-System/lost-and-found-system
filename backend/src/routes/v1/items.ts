@@ -12,7 +12,7 @@ import { createApiError } from '../../middleware/errorHandler.js'
 import { validateRequest } from '../../middleware/validation.js'
 import { ItemModel } from '../../models/index.js'
 import { draftSaveSchema, organizationSubmissionSchema, submitItemSchema } from '../../schemas/index.js'
-import { validateTitleCategory } from '../../services/embeddingService.js'
+import { validateImageForCategory, validateTitleCategory } from '../../services/embeddingService.js'
 import {
   deleteDraft,
   getDraft,
@@ -45,6 +45,26 @@ itemsRouter.post('/validate-category', authMiddleware, async (req: AuthRequest, 
   }
 })
 
+// ============ IMAGE DUPLICATE-OBJECT VALIDATION ============
+
+// Check if an uploaded image contains multiple objects semantically matching the
+// reported item. YOLO model selection is driven by category; semantic matching
+// uses MiniLM (same pipeline as ai_category_validator.py).
+itemsRouter.post('/validate-image', authMiddleware, async (req: AuthRequest, res: Response, next) => {
+  try {
+    const { imageUrl, category, title, description } = req.body
+
+    if (!imageUrl || !category) {
+      throw createApiError(400, 'Both imageUrl and category are required')
+    }
+
+    const result = await validateImageForCategory(imageUrl, category, title ?? '', description ?? '')
+    res.json(result)
+  } catch (error) {
+    next(error instanceof Error ? createApiError(400, error.message) : error)
+  }
+})
+
 // ============ ITEM SUBMISSIONS ============
 
 // Submit a new item (lost or found)
@@ -56,7 +76,7 @@ itemsRouter.post('/', authMiddleware, validateRequest(submitItemSchema), async (
       throw createApiError(400, 'Location is outside valid campus zones')
     }
 
-    const item = await submitItem({
+    const { item, embeddingResult } = await submitItem({
       ...req.body,
       submittedBy: req.user?.userId,
     })
@@ -66,7 +86,7 @@ itemsRouter.post('/', authMiddleware, validateRequest(submitItemSchema), async (
       await deleteDraft(req.user.userId)
     }
 
-    res.status(201).json(item)
+    res.status(201).json({ ...item.toObject(), embeddingResult })
   } catch (error) {
     next(error instanceof Error ? createApiError(400, error.message) : error)
   }
@@ -233,6 +253,32 @@ itemsRouter.get('/user/my-items', authMiddleware, async (req: AuthRequest, res: 
 })
 
 // Get item by ID (must be after other specific routes)
+itemsRouter.get('/:id/matches', async (req, res, next) => {
+  try {
+    const { ItemModel, AiMatchModel } = await import('../../models/index.js')
+    const itemId = req.params.id
+    const item = await ItemModel.findById(itemId)
+    if (!item) {
+      throw createApiError(404, 'Item not found')
+    }
+
+    let matches = []
+    if (item.submissionType === 'lost') {
+      matches = await AiMatchModel.find({ lostItemId: itemId })
+        .populate('foundItemId')
+        .sort({ similarityScore: -1 })
+    } else {
+      matches = await AiMatchModel.find({ foundItemId: itemId })
+        .populate('lostItemId')
+        .sort({ matchScore: -1 })
+    }
+
+    res.json(matches)
+  } catch (error) {
+    next(error)
+  }
+})
+
 itemsRouter.get('/:id', async (req, res, next) => {
   try {
     const itemId = req.params.id as string

@@ -3,40 +3,33 @@
  * @description User profile page with editable personal info, account details, and activity stats.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
-import Sidebar from '../components/Sidebar';
 import { gsap } from 'gsap';
 import {
-    User,
-    Mail,
-    Phone,
-    Shield,
-    Edit3,
-    Save,
-    X,
-    Camera,
-    CheckCircle,
-    Loader2,
     AlertCircle,
     Calendar,
-    Package,
+    CheckCircle,
+    Edit3,
     FileText,
-    Activity,
-    Award
+    Loader2,
+    Mail,
+    Package,
+    Save,
+    Shield,
+    User,
+    X
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Sidebar from '../components/Sidebar';
+import { useAuth } from '../context/AuthContext';
 import {
-    MorphingBlob,
-    GlitchText,
-    NeonText,
-    TiltCard,
-    GradientBorderCard,
     ElasticButton,
-    PulseRings,
-    ParticleExplosion,
-    HolographicCard
+    GlitchText,
+    GradientBorderCard,
+    MorphingBlob,
+    NeonText,
+    TiltCard
 } from '../effects';
+import api from '../services/api';
 
 const Profile = () => {
     const { user, updateProfile } = useAuth();
@@ -343,6 +336,41 @@ const Profile = () => {
                                     </div>
                                 </GradientBorderCard>
                             </TiltCard>
+
+                            {/* Penalty Score Analysis */}
+                            {user?.penaltyScore > 0 && (
+                                <div className="mt-6 profile-card" style={{ perspective: 1000 }}>
+                                    <TiltCard intensity={0.2}>
+                                        <div className={`p-6 rounded-2xl border-2 backdrop-blur-xl ${user.penaltyScore > 50
+                                                ? 'bg-red-500/10 border-red-500/40 text-red-100'
+                                                : 'bg-amber-500/10 border-amber-500/40 text-amber-100'
+                                            }`}>
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <AlertCircle size={24} className={user.penaltyScore > 50 ? 'text-red-500' : 'text-amber-500'} />
+                                                <h3 className="text-lg font-bold">AI Integrity Penalty</h3>
+                                            </div>
+
+                                            <div className="flex items-end gap-3 mb-4">
+                                                <span className="text-5xl font-black">{Math.round(user.penaltyScore)}</span>
+                                                <span className="text-slate-400 mb-2 font-mono">/ 100 infraction points</span>
+                                            </div>
+
+                                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                                                <div
+                                                    className={`h-full transition-all duration-1000 ${user.penaltyScore > 50 ? 'bg-red-500' : 'bg-amber-500'}`}
+                                                    style={{ width: `${user.penaltyScore}%` }}
+                                                />
+                                            </div>
+
+                                            <p className="text-sm text-slate-400 leading-relaxed italic">
+                                                {user.penaltyScore > 50
+                                                    ? "Critical penalty detected. Your claims are being auto-flagged for manual review due to low correlation history."
+                                                    : "Minor integrity penalty. Penalties decay naturally every 24 hours if you maintain high match correlations."}
+                                            </p>
+                                        </div>
+                                    </TiltCard>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

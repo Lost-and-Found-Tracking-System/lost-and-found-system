@@ -1,31 +1,27 @@
 /**
  * @module routes/v1/uploads
- * @description Image upload route handlers using multer and Cloudinary.
+ * @description Image upload route handlers using local disk storage.
  * Endpoints: single image upload, multiple image upload, and image deletion.
  */
 
-import { Router } from 'express'
 import type { Response } from 'express'
+import { Router } from 'express'
 import multer from 'multer'
-import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthRequest } from '../../middleware/auth.js'
-import { uploadImage, uploadMultipleImages, deleteImage } from '../../services/uploadService.js'
+import { authMiddleware } from '../../middleware/auth.js'
 import { createApiError } from '../../middleware/errorHandler.js'
-import { isCloudinaryConfigured } from '../../config/cloudinary.js'
+import { deleteImage, uploadImage, uploadMultipleImages } from '../../services/uploadService.js'
 
 export const uploadsRouter = Router()
 
-// Configure multer for memory storage (files stored in buffer)
-const storage = multer.memoryStorage()
-
+// Configure multer for memory storage
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(),
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB max file size
-        files: 5, // Max 5 files at once
+        fileSize: 5 * 1024 * 1024, // 5 MB
+        files: 5,
     },
     fileFilter: (_req, file, cb) => {
-        // Only allow image files
         if (file.mimetype.startsWith('image/')) {
             cb(null, true)
         } else {
@@ -34,18 +30,6 @@ const upload = multer({
     },
 })
 
-// Middleware to check Cloudinary configuration
-function requireCloudinary(req: AuthRequest, res: Response, next: () => void) {
-    if (!isCloudinaryConfigured()) {
-        res.status(503).json({
-            error: 'Image upload service unavailable',
-            message: 'Cloudinary is not configured. Please contact administrator.',
-        })
-        return
-    }
-    next()
-}
-
 /**
  * POST /api/v1/uploads/image
  * Upload a single image
@@ -53,7 +37,6 @@ function requireCloudinary(req: AuthRequest, res: Response, next: () => void) {
 uploadsRouter.post(
     '/image',
     authMiddleware,
-    requireCloudinary,
     upload.single('image'),
     async (req: AuthRequest, res: Response, next) => {
         try {
@@ -62,7 +45,7 @@ uploadsRouter.post(
             }
 
             const result = await uploadImage(req.file.buffer, {
-                folder: `lostfound/items/${req.user?.userId}`,
+                originalname: req.file.originalname,
             })
 
             res.status(201).json({
@@ -89,7 +72,6 @@ uploadsRouter.post(
 uploadsRouter.post(
     '/images',
     authMiddleware,
-    requireCloudinary,
     upload.array('images', 5),
     async (req: AuthRequest, res: Response, next) => {
         try {
@@ -100,8 +82,7 @@ uploadsRouter.post(
             }
 
             const results = await uploadMultipleImages(
-                files.map(f => ({ buffer: f.buffer, originalname: f.originalname })),
-                `lostfound/items/${req.user?.userId}`
+                files.map(f => ({ buffer: f.buffer, originalname: f.originalname }))
             )
 
             res.status(201).json({
@@ -123,12 +104,11 @@ uploadsRouter.post(
 
 /**
  * DELETE /api/v1/uploads/:publicId
- * Delete an image by public ID
+ * Delete an image by public ID (e.g. local/abc123.jpg)
  */
 uploadsRouter.delete(
     '/:publicId(*)',
     authMiddleware,
-    requireCloudinary,
     async (req: AuthRequest, res: Response, next) => {
         try {
             const publicId = req.params.publicId as string

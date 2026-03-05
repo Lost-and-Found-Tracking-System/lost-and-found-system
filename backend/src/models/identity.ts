@@ -4,8 +4,8 @@
  * Includes: Users, Login Sessions, Login Activity Logs, Roles (RBAC), and Role Change Audits.
  */
 
-import { Schema, model, Types } from 'mongoose'
 import type { InferSchemaType } from 'mongoose'
+import { model, Schema, Types } from 'mongoose'
 
 // ─── USERS ─────────────────────────────────────────────────────────────
 
@@ -59,6 +59,8 @@ const userSchema = new Schema({
   profile: { type: profileSchema, required: true },
   visitorMetadata: visitorMetadataSchema,
   status: { type: String, required: true, enum: ['active', 'suspended', 'expired'] },
+  penaltyScore: { type: Number, default: 0 },
+  lastPenaltyUpdate: { type: Date }
 }, { timestamps: true })
 
 userSchema.index({ institutionalId: 1 }, { unique: true, sparse: true })

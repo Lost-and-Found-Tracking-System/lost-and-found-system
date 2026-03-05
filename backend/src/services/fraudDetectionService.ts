@@ -11,8 +11,7 @@
  */
 
 import { Types } from 'mongoose'
-import { ClaimModel, ItemModel } from '../models/index.js'
-
+import { ClaimModel, ItemEmbeddingModel, ItemModel, UserModel } from '../models/index.js'
 // ============ INLINE TF-IDF IMPLEMENTATION ============
 
 const STOP_WORDS = new Set([
@@ -438,7 +437,7 @@ export async function evaluateCompetingClaims(
     const claims = await ClaimModel.find({
         itemId: itemObjectId,
         status: { $in: ['pending', 'conflict'] },
-    }) as unknown as ClaimDocument[]
+    }).populate('claimantId') as any[]
 
     if (claims.length === 0) {
         return {
@@ -475,9 +474,16 @@ export async function evaluateCompetingClaims(
     } else if (runnerUp && (winner.finalScore - runnerUp.finalScore) < CONFIG.minimumConfidenceGap) {
         requiresManualReview = true
         reason = `Gap between top claims too small (${winner.finalScore}% vs ${runnerUp.finalScore}%)`
-    } else if (winner.flags.some(f => f.severity === 'critical')) {
+    } else if (winner.flags.some((f: any) => f.severity === 'critical')) {
         requiresManualReview = true
         reason = 'Winner has critical fraud flags'
+    }
+
+    // NEW LOGIC: Block if penalty score is too high
+    const winnerUser = await UserModel.findById(winner.claimantId)
+    if (winnerUser && winnerUser.penaltyScore && winnerUser.penaltyScore > 50) {
+        requiresManualReview = true
+        reason = `Winner has a very high penalty score (${winnerUser.penaltyScore}). Award blocked.`
     }
 
     return {
@@ -504,6 +510,10 @@ export async function processCompetingClaims(
     }
 
     const winner = result.evaluations[0]
+
+    // Fetch the found item embedding for FAISS correlation
+    const foundItemEmb = await ItemEmbeddingModel.findOne({ itemId: new Types.ObjectId(itemId) })
+    const foundEmbVector = foundItemEmb ? foundItemEmb.embedding : []
 
     // Process each claim
     for (let i = 0; i < result.evaluations.length; i++) {
@@ -537,19 +547,45 @@ export async function processCompetingClaims(
         // Update claim in database
         if (isWinner) {
             await awardClaim(evaluation.claimId, evaluation.finalScore)
-        } else if (suspicionScore >= CONFIG.suspiciousThreshold) {
-            await markAsSuspicious(evaluation.claimId, suspicionScore, flags)
         } else {
-            // Just mark as rejected without suspicious flag
-            await ClaimModel.findByIdAndUpdate(evaluation.claimId, {
-                status: 'rejected',
-                aiConfidenceScore: evaluation.finalScore,
-                fraudRisk: {
-                    suspicionScore,
-                    flags,
-                    assessedAt: new Date(),
-                },
-            })
+            // META-FAISS CORRELATION CAPTURE FOR LOSER PENALTY
+            let faissSimilarity = 0
+            if (foundEmbVector.length > 0) {
+                const claimantLostItem = await ItemModel.findOne({
+                    submittedBy: evaluation.claimantId,
+                    submissionType: 'lost'
+                }).sort({ createdAt: -1 })
+
+                if (claimantLostItem) {
+                    const lostItemEmb = await ItemEmbeddingModel.findOne({ itemId: claimantLostItem._id })
+                    if (lostItemEmb && lostItemEmb.embedding && lostItemEmb.embedding.length > 0) {
+                        faissSimilarity = cosineSimilarityFunc(lostItemEmb.embedding, foundEmbVector)
+                    }
+                }
+            }
+
+            // If correlation is poor (e.g. less than 0.5), award penalty score.
+            let addedPenalty = 0
+            if (faissSimilarity < 0.5) {
+                // The poorer the correlation, the higher the penalty. Max penalty 15 per bad claim.
+                addedPenalty = Math.round((0.5 - faissSimilarity) * 30) // Up to 15
+                await awardUserPenalty(evaluation.claimantId, addedPenalty)
+            }
+
+            if (suspicionScore >= CONFIG.suspiciousThreshold) {
+                await markAsSuspicious(evaluation.claimId, suspicionScore, flags)
+            } else {
+                // Just mark as rejected without suspicious flag
+                await ClaimModel.findByIdAndUpdate(evaluation.claimId, {
+                    status: 'rejected',
+                    aiConfidenceScore: evaluation.finalScore,
+                    fraudRisk: {
+                        suspicionScore,
+                        flags,
+                        assessedAt: new Date(),
+                    },
+                })
+            }
         }
     }
 
@@ -558,10 +594,33 @@ export async function processCompetingClaims(
 
 // ============ DATABASE UPDATE FUNCTIONS ============
 
+function cosineSimilarityFunc(vec1: number[], vec2: number[]): number {
+    if (vec1.length !== vec2.length || vec1.length === 0) return 0
+    let dotProduct = 0, norm1 = 0, norm2 = 0
+    for (let i = 0; i < vec1.length; i++) {
+        dotProduct += vec1[i] * vec2[i]
+        norm1 += vec1[i] * vec1[i]
+        norm2 += vec2[i] * vec2[i]
+    }
+    const magnitude = Math.sqrt(norm1) * Math.sqrt(norm2)
+    return magnitude > 0 ? dotProduct / magnitude : 0
+}
+
+async function awardUserPenalty(userId: Types.ObjectId | string, penalty: number): Promise<void> {
+    const user = await UserModel.findById(userId)
+    if (user) {
+        user.penaltyScore = (user.penaltyScore || 0) + penalty
+        user.lastPenaltyUpdate = new Date()
+        await user.save()
+    }
+}
+
+// ============ DATABASE UPDATE FUNCTIONS ============
+
 /**
  * Award a claim as the winner
  */
-async function awardClaim(claimId: Types.ObjectId, confidenceScore: number): Promise<void> {
+async function awardClaim(claimId: Types.ObjectId | string, confidenceScore: number): Promise<void> {
     await ClaimModel.findByIdAndUpdate(claimId, {
         status: 'approved',
         aiConfidenceScore: confidenceScore,
@@ -578,7 +637,7 @@ async function awardClaim(claimId: Types.ObjectId, confidenceScore: number): Pro
  * Mark a claim as suspicious
  */
 export async function markAsSuspicious(
-    claimId: Types.ObjectId,
+    claimId: Types.ObjectId | string,
     suspicionScore: number,
     flags: FraudFlag[]
 ): Promise<void> {
