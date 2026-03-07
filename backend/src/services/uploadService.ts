@@ -1,13 +1,15 @@
 /**
  * @module services/uploadService
- * @description Image upload service using local disk storage.
- * Files are saved to `backend/uploads/` and served at `/uploads/<filename>`.
+ * @description Dual-mode image upload service.
+ * Uses Cloudinary when credentials are configured in `.env`,
+ * falls back to local disk storage (`backend/uploads/`) otherwise.
  */
 
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { cloudinary, isCloudinaryConfigured } from '../config/cloudinary.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -31,18 +33,50 @@ export interface UploadResult {
     bytes: number
 }
 
-/**
- * Upload a single image to local disk.
- * Returns a localhost URL that can be used just like a Cloudinary URL.
- */
-export async function uploadImage(
+// ============ CLOUDINARY UPLOAD ============
+
+async function uploadToCloudinary(
     fileBuffer: Buffer,
-    options?: {
-        folder?: string
-        filename?: string
-        originalname?: string
-    }
+    options?: { folder?: string; filename?: string; originalname?: string }
 ): Promise<UploadResult> {
+    const folder = options?.folder || 'lost-and-found'
+
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder,
+                resource_type: 'image',
+                transformation: [
+                    { width: 1200, height: 1200, crop: 'limit' },
+                    { quality: 'auto', fetch_format: 'auto' },
+                ],
+            },
+            (error, result) => {
+                if (error || !result) {
+                    reject(error || new Error('Cloudinary upload returned no result'))
+                    return
+                }
+                resolve({
+                    url: result.url,
+                    secureUrl: result.secure_url,
+                    publicId: result.public_id,
+                    width: result.width,
+                    height: result.height,
+                    format: result.format,
+                    bytes: result.bytes,
+                })
+            }
+        )
+        uploadStream.end(fileBuffer)
+    })
+}
+
+// ============ LOCAL UPLOAD ============
+
+function uploadToLocal(
+    fileBuffer: Buffer,
+    options?: { folder?: string; filename?: string; originalname?: string }
+): UploadResult {
     ensureUploadsDir()
 
     const originalname = options?.originalname ?? options?.filename ?? 'upload'
@@ -70,34 +104,69 @@ export async function uploadImage(
     }
 }
 
+// ============ PUBLIC API ============
+
+/**
+ * Upload a single image.
+ * Routes to Cloudinary when configured, otherwise saves to local disk.
+ */
+export async function uploadImage(
+    fileBuffer: Buffer,
+    options?: { folder?: string; filename?: string; originalname?: string }
+): Promise<UploadResult> {
+    if (isCloudinaryConfigured()) {
+        console.log('[UploadService] Using Cloudinary')
+        return uploadToCloudinary(fileBuffer, options)
+    }
+    console.log('[UploadService] Cloudinary not configured — using local storage')
+    return uploadToLocal(fileBuffer, options)
+}
+
 /**
  * Upload multiple images sequentially.
  */
 export async function uploadMultipleImages(
     files: { buffer: Buffer; originalname: string }[],
-    _folder?: string
+    folder?: string
 ): Promise<UploadResult[]> {
     const results: UploadResult[] = []
     for (const file of files) {
-        results.push(await uploadImage(file.buffer, { originalname: file.originalname }))
+        results.push(await uploadImage(file.buffer, { originalname: file.originalname, folder }))
     }
     return results
 }
 
 /**
- * Delete a locally-stored image by its publicId (`local/<filename>`).
+ * Delete an image by its publicId.
+ * Handles both Cloudinary IDs and local IDs (`local/<filename>`).
  */
 export async function deleteImage(publicId: string): Promise<boolean> {
-    const filename = publicId.replace(/^local\//, '')
-    const filepath = path.join(LOCAL_UPLOADS_DIR, filename)
-    try {
-        if (fs.existsSync(filepath)) {
-            fs.unlinkSync(filepath)
-            console.log(`[UploadService] Deleted local image: ${filepath}`)
+    // Local file
+    if (publicId.startsWith('local/')) {
+        const filename = publicId.replace(/^local\//, '')
+        const filepath = path.join(LOCAL_UPLOADS_DIR, filename)
+        try {
+            if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath)
+                console.log(`[UploadService] Deleted local image: ${filepath}`)
+            }
+            return true
+        } catch (err) {
+            console.error(`[UploadService] Failed to delete ${filepath}:`, err)
+            return false
         }
-        return true
-    } catch (err) {
-        console.error(`[UploadService] Failed to delete ${filepath}:`, err)
-        return false
     }
+
+    // Cloudinary file
+    if (isCloudinaryConfigured()) {
+        try {
+            const result = await cloudinary.uploader.destroy(publicId)
+            return result.result === 'ok'
+        } catch (err) {
+            console.error(`[UploadService] Cloudinary delete failed for ${publicId}:`, err)
+            return false
+        }
+    }
+
+    return false
 }
