@@ -1,0 +1,13 @@
+# Python dependencies for AI services
+# Install with: pip install -r requirements.txt
+
+# OpenCLIP image embeddings (open_clip_service.py)
+open-clip-torch>=2.24.0
+torch>=2.0.0
+Pillow>=10.0.0
+requests>=2.31.0
+
+# Groq LLM + sentence embeddings (ai_category_validator.py)
+groq>=0.4.0
+sentence-transformers>=2.2.0
+transformers>=4.36.0
