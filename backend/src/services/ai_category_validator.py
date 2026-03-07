@@ -15,8 +15,6 @@ logging.getLogger("torch").setLevel(logging.ERROR)
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 
-GROQ_API_KEY="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"
-
 def run_inference(message):
     if not GROQ_API_KEY:
         raise Exception("GROQ_API_KEY environment variable is missing")
