@@ -1,15 +1,17 @@
 /**
  * @module tests/unit/uploadService
- * @description Unit tests for upload service — Cloudinary integration with mocks.
+ * @description Unit tests for dual-mode upload service (Cloudinary + local fallback).
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import fs from 'fs'
+import path from 'path'
 
 // Mock Cloudinary configuration
 vi.mock('../../src/config/cloudinary.js', () => ({
     cloudinary: {
         uploader: {
-            upload_stream: vi.fn((options, callback) => {
+            upload_stream: vi.fn((_options, callback) => {
                 // Simulate successful upload
                 setTimeout(() => {
                     callback(null, {
@@ -26,9 +28,6 @@ vi.mock('../../src/config/cloudinary.js', () => ({
             }),
             destroy: vi.fn().mockResolvedValue({ result: 'ok' }),
         },
-        url: vi.fn((publicId, options) =>
-            `https://res.cloudinary.com/test/image/upload/${publicId}`
-        ),
     },
     isCloudinaryConfigured: vi.fn().mockReturnValue(true),
 }))
@@ -37,25 +36,26 @@ import {
     uploadImage,
     uploadMultipleImages,
     deleteImage,
-    getOptimizedUrl,
+    LOCAL_UPLOADS_DIR,
 } from '../../src/services/uploadService.js'
 import { cloudinary, isCloudinaryConfigured } from '../../src/config/cloudinary.js'
 
-describe('Upload Service - uploadImage', () => {
+describe('Upload Service — Cloudinary mode', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        vi.mocked(isCloudinaryConfigured).mockReturnValue(true)
     })
 
-    it('should upload image successfully', async () => {
+    it('should upload image via Cloudinary when configured', async () => {
         const buffer = Buffer.from('fake-image-data')
         const result = await uploadImage(buffer)
 
         expect(result).toBeDefined()
         expect(result.secureUrl).toContain('https://')
-        expect(result.publicId).toBeDefined()
+        expect(result.publicId).toBe('test_public_id')
     })
 
-    it('should pass folder option', async () => {
+    it('should pass folder option to Cloudinary', async () => {
         const buffer = Buffer.from('fake-image-data')
         await uploadImage(buffer, { folder: 'items' })
 
@@ -65,16 +65,6 @@ describe('Upload Service - uploadImage', () => {
         )
     })
 
-    it('should throw error when not configured', async () => {
-        vi.mocked(isCloudinaryConfigured).mockReturnValueOnce(false)
-
-        const buffer = Buffer.from('fake-image-data')
-
-        await expect(uploadImage(buffer)).rejects.toThrow('Cloudinary is not configured')
-    })
-})
-
-describe('Upload Service - uploadMultipleImages', () => {
     it('should upload multiple images', async () => {
         const files = [
             { buffer: Buffer.from('image1'), originalname: 'image1.jpg' },
@@ -88,53 +78,74 @@ describe('Upload Service - uploadMultipleImages', () => {
             expect(result.secureUrl).toBeDefined()
         })
     })
-})
 
-describe('Upload Service - deleteImage', () => {
-    it('should delete image successfully', async () => {
+    it('should delete image via Cloudinary', async () => {
         const result = await deleteImage('test_public_id')
 
         expect(result).toBe(true)
         expect(cloudinary.uploader.destroy).toHaveBeenCalledWith('test_public_id')
     })
 
-    it('should return false on failure', async () => {
+    it('should return false on Cloudinary delete failure', async () => {
         vi.mocked(cloudinary.uploader.destroy).mockRejectedValueOnce(new Error('Failed'))
 
         const result = await deleteImage('invalid_id')
         expect(result).toBe(false)
     })
+})
 
-    it('should throw when not configured', async () => {
-        vi.mocked(isCloudinaryConfigured).mockReturnValueOnce(false)
+describe('Upload Service — Local fallback mode', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(isCloudinaryConfigured).mockReturnValue(false)
+    })
 
-        await expect(deleteImage('test_id')).rejects.toThrow('Cloudinary is not configured')
+    afterEach(() => {
+        // Clean up any test files
+        const testDir = LOCAL_UPLOADS_DIR
+        if (fs.existsSync(testDir)) {
+            const files = fs.readdirSync(testDir)
+            for (const file of files) {
+                if (file.includes('fake') || file.endsWith('.jpg')) {
+                    try { fs.unlinkSync(path.join(testDir, file)) } catch { /* ignore */ }
+                }
+            }
+        }
+    })
+
+    it('should upload image locally when Cloudinary is not configured', async () => {
+        const buffer = Buffer.from('fake-image-data')
+        const result = await uploadImage(buffer, { originalname: 'test.jpg' })
+
+        expect(result).toBeDefined()
+        expect(result.publicId).toMatch(/^local\//)
+        expect(result.url).toContain('/uploads/')
+        expect(result.bytes).toBe(buffer.length)
+
+        // Cloudinary should NOT have been called
+        expect(cloudinary.uploader.upload_stream).not.toHaveBeenCalled()
+    })
+
+    it('should delete local image by publicId', async () => {
+        // First upload locally
+        const buffer = Buffer.from('fake-image-data')
+        const uploaded = await uploadImage(buffer, { originalname: 'deleteme.jpg' })
+
+        // Then delete
+        const result = await deleteImage(uploaded.publicId)
+        expect(result).toBe(true)
+
+        // Cloudinary destroy should NOT have been called
+        expect(cloudinary.uploader.destroy).not.toHaveBeenCalled()
+    })
+
+    it('should return false when deleting non-Cloudinary, non-local image', async () => {
+        const result = await deleteImage('some-random-id')
+        expect(result).toBe(false)
     })
 })
 
-describe('Upload Service - getOptimizedUrl', () => {
-    it('should generate optimized URL', () => {
-        const url = getOptimizedUrl('test_public_id')
-
-        expect(url).toContain('test_public_id')
-        expect(cloudinary.url).toHaveBeenCalled()
-    })
-
-    it('should pass transformation options', () => {
-        getOptimizedUrl('test_id', { width: 400, height: 300, crop: 'fill' })
-
-        expect(cloudinary.url).toHaveBeenCalledWith(
-            'test_id',
-            expect.objectContaining({
-                width: 400,
-                height: 300,
-                crop: 'fill',
-            })
-        )
-    })
-})
-
-describe('Upload Service - Validation Logic', () => {
+describe('Upload Service — Validation Logic', () => {
     it('should define supported formats', () => {
         const supportedFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp']
         expect(supportedFormats).toContain('jpg')

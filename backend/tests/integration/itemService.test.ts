@@ -73,7 +73,7 @@ describe('Item Service - Submit Item', () => {
             submittedBy: testUserId,
         }
 
-        const item = await submitItem(input)
+        const { item } = await submitItem(input)
 
         expect(item).toBeDefined()
         expect(item.trackingId).toMatch(/^ITEM-[A-F0-9]{16}$/)
@@ -101,7 +101,7 @@ describe('Item Service - Submit Item', () => {
             isAnonymous: true,
         }
 
-        const item = await submitItem(input)
+        const { item } = await submitItem(input)
 
         expect(item.submissionType).toBe('found')
         expect(item.isAnonymous).toBe(true)
@@ -126,8 +126,8 @@ describe('Item Service - Submit Item', () => {
             isAnonymous: false,
         }
 
-        const item1 = await submitItem(baseInput)
-        const item2 = await submitItem(baseInput)
+        const { item: item1 } = await submitItem(baseInput)
+        const { item: item2 } = await submitItem(baseInput)
 
         expect(item1.trackingId).not.toBe(item2.trackingId)
     })
@@ -140,7 +140,7 @@ describe('Item Service - Get Item', () => {
 
     it('should retrieve item by ID', async () => {
         // First create an item
-        const created = await submitItem({
+        const { item: created } = await submitItem({
             submissionType: 'lost' as const,
             itemAttributes: {
                 category: 'Bags',
