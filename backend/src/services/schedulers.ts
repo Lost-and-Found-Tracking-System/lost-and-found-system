@@ -32,8 +32,8 @@ async function processArchiveClaims(olderThanDays = 365): Promise<{ archivedCoun
     let archivedCount = 0
     for (const claim of claimsToArchive) {
         await ArchivedClaimModel.create({
-            originalId: claim._id,
-            ...claim.toObject(),
+            originalClaimId: claim._id,
+            dataSnapshot: claim.toObject(),
             archivedAt: new Date(),
         })
         await ClaimModel.deleteOne({ _id: claim._id })
