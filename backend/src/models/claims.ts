@@ -18,6 +18,20 @@ import { model, Schema, Types } from 'mongoose'
  * @property confidenceTier - AI confidence tier: `full`, `partial`, or `low`
  * @property status - Claim lifecycle: `pending`, `approved`, `rejected`, `withdrawn`, `conflict`
  */
+/** @internal Sub-schema for fraud detection flags */
+const fraudFlagSchema = new Schema({
+  type: { type: String, required: true },
+  severity: { type: String, required: true, enum: ['warning', 'critical'] },
+  description: { type: String, required: true },
+}, { _id: false })
+
+/** @internal Sub-schema for fraud risk assessment */
+const fraudRiskSchema = new Schema({
+  suspicionScore: { type: Number, default: 0 },
+  flags: [fraudFlagSchema],
+  assessedAt: { type: Date },
+}, { _id: false })
+
 const claimSchema = new Schema({
   itemId: { type: Types.ObjectId, required: true, ref: 'items' },
   claimantId: { type: Types.ObjectId, required: true, ref: 'users' },
@@ -27,6 +41,8 @@ const claimSchema = new Schema({
   status: { type: String, required: true, enum: ['pending', 'approved', 'rejected', 'withdrawn', 'conflict', 'suspicious'] },
   aiConfidenceScore: { type: Number },
   confidenceTier: { type: String, required: true, enum: ['full', 'partial', 'low'] },
+  /** AI fraud risk assessment results */
+  fraudRisk: fraudRiskSchema,
   submittedAt: { type: Date, required: true },
   resolvedAt: { type: Date },
   resolvedBy: { type: Types.ObjectId, ref: 'users' },

@@ -43,6 +43,14 @@ const itemTimeMetadataSchema = new Schema({
 const aiMetadataSchema = new Schema({
   similarityChecked: { type: Boolean, default: false },
   suggestedMatches: [{ type: Types.ObjectId, ref: 'items' }],
+  /** YOLO-detected object labels (e.g. ['phone', 'bag']) */
+  detectedObjects: [{ type: String }],
+  /** Highest-confidence YOLO class label */
+  primaryClass: { type: String },
+  /** OpenCLIP image embedding vector */
+  embedding: [{ type: Number }],
+  /** TF-IDF text embedding vector */
+  textEmbedding: [{ type: Number }],
 }, { _id: false })
 
 /**
