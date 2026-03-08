@@ -135,12 +135,37 @@ interface ItemDocument {
 const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models'
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || ''
 
-// YOLOv8 Model configurations (EXCLUSIVELY USE THE COMPUTER APPARATUS DETECTOR)
+// YOLOv8 Model configurations
 const YOLO_MODELS = {
+    personalItems: {
+        modelId: 'IndUSV/yoloV8_SE_3',
+        weightUrl: 'https://huggingface.co/IndUSV/yoloV8_SE_3/resolve/main/Yolov8_SE_3.pt',
+        description: 'Mobile phones, suitcases, handbags',
+        labels: ['mobile_phone', 'suitcase', 'handbag'],
+    },
+    phone: {
+        modelId: 'IndUSV/yolov8n-mobile-phone',
+        weightUrl: 'https://huggingface.co/IndUSV/yolov8n-mobile-phone/resolve/main/yolov8n-mobile-phone.pt',
+        description: 'Mobile Phone',
+        labels: ['mobile_phone']
+    },
+    electronics: {
+        modelId: 'IndUSV/Yolov8_Screen_Detection',
+        weightUrl: 'https://huggingface.co/IndUSV/Yolov8_Screen_Detection/resolve/main/best.pt',
+        description: 'Electronic gadgets and screens',
+        labels: ['laptop', 'phone', 'monitor', 'keyboard', 'mouse', 'screen', 'electronics'],
+    },
     computerApparatus: {
         modelId: 'IndUSV/computerApparatus-detector',
+        weightUrl: 'https://huggingface.co/IndUSV/computerApparatus-detector/resolve/main/yolov8n_best.pt',
         description: 'Keyboard, mouse, monitor',
-        labels: ['keyboard', 'mouse', 'monitor', 'computer'],
+        labels: ['keyboard', 'mouse', 'monitor'],
+    },
+    phoneAndSuitcase: {
+        modelId: 'IndUSV/yolov8_SE_2',
+        weightUrl: 'https://huggingface.co/IndUSV/yolov8_SE_2/resolve/main/Yolov8_SE_2.pt',
+        description: 'Mobile phones, suitcases',
+        labels: ['mobile_phone', 'suitcase'],
     },
 }
 
@@ -197,68 +222,55 @@ const STOP_WORDS = new Set([
 
 // ============ FUNCTION 1: YOLO OBJECT DETECTION ============
 
-async function detectWithHuggingFaceModel(
+async function detectWithYoloPython(
     imageUrl: string,
+    modelUrl: string,
     modelId: string,
-    prefetchedBuffer?: Buffer
+    conf: number = 0.25
 ): Promise<DetectedObject[]> {
-    if (!HUGGINGFACE_API_KEY) {
-        console.error(`[HF Inference API] Error: HUGGINGFACE_API_KEY is missing in your .env file. Models cannot detect objects.`)
-        return []
-    }
+    return new Promise((resolve) => {
+        const pythonScriptPath = path.join(__dirname, 'yolo_service.py')
 
-    try {
-        // Use pre-fetched buffer if provided (avoids redundant fetches in parallel calls)
-        let imageBuffer: Buffer
-        if (prefetchedBuffer) {
-            // Slice to ensure this call owns a fresh copy of the underlying memory
-            imageBuffer = Buffer.from(prefetchedBuffer)
-        } else {
-            const imageResponse = await fetch(imageUrl)
-            if (!imageResponse.ok) {
-                console.error(`[HF Proxy] Failed to fetch image: ${imageResponse.statusText}`)
-                return []
+        // Map URL to local path if needed
+        let localPathOrUrl = imageUrl;
+        if (localPathOrUrl && (localPathOrUrl.includes('localhost:3000/uploads/') || localPathOrUrl.includes('localhost:5000/uploads/'))) {
+            const filename = localPathOrUrl.split('/uploads/').pop();
+            if (filename) {
+                localPathOrUrl = path.resolve(__dirname, '../../uploads', filename);
             }
-            const imageBlob = await imageResponse.blob()
-            imageBuffer = Buffer.from(await imageBlob.arrayBuffer())
         }
 
-        const response = await fetch(`${HUGGINGFACE_API_URL}/${modelId}`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
-                'Content-Type': 'application/octet-stream',
-            },
-            body: new Uint8Array(imageBuffer),
+        console.log(`[YOLO DEBUG] Running ${modelId} on ${localPathOrUrl} (Weight: ${modelUrl})`)
+
+        execFile(PYTHON_BIN, [pythonScriptPath, localPathOrUrl, modelUrl, conf.toString()], { timeout: 120_000 }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing yolo_service.py for ${modelId}: ${error.message}`)
+                if (stderr) console.error(`yolo_service.py stderr: ${stderr}`)
+                return resolve([])
+            }
+
+            try {
+                const result = JSON.parse(stdout)
+                if (result.error) {
+                    console.error(`YOLO Python Error (${modelId}): ${result.error}`)
+                    return resolve([])
+                }
+
+                const detections = (result.objects || []).map((o: any) => ({
+                    label: o.label.toLowerCase(),
+                    confidence: o.confidence,
+                    bbox: o.bbox,
+                    model: modelId,
+                }))
+
+                resolve(detections)
+            } catch (parseError) {
+                console.error(`Error parsing YOLO output for ${modelId}: ${parseError}`)
+                console.error(`Raw output: ${stdout}`)
+                resolve([])
+            }
         })
-
-        if (!response.ok) {
-            const errText = await response.text().catch(() => response.statusText)
-            console.error(`HuggingFace API error (${modelId}): ${response.status} ${errText}`)
-            return []
-        }
-
-        const results = (await response.json()) as Array<{
-            label: string
-            score: number
-            box: { xmin: number; ymin: number; xmax: number; ymax: number }
-        }>
-
-        return results.map((r) => ({
-            label: r.label.toLowerCase(),
-            confidence: r.score,
-            bbox: [r.box.xmin, r.box.ymin, r.box.xmax - r.box.xmin, r.box.ymax - r.box.ymin] as [
-                number,
-                number,
-                number,
-                number,
-            ],
-            model: modelId,
-        }))
-    } catch (error) {
-        console.error(`Error with HuggingFace model ${modelId}:`, error)
-        return []
-    }
+    })
 }
 
 
@@ -346,11 +358,17 @@ function deduplicateDetections(objects: DetectedObject[], iouThreshold = 0.5): D
 export async function classifyImageWithYOLO(imageUrl: string): Promise<ObjectDetectionResult> {
     const startTime = Date.now()
 
-    // Run only the requested model
-    const computerApparatus = await detectWithHuggingFaceModel(imageUrl, YOLO_MODELS.computerApparatus.modelId)
+    // Run all models in parallel
+    const [personalItems, phone, electronics, computerApparatus, phoneAndSuitcase] = await Promise.all([
+        detectWithYoloPython(imageUrl, YOLO_MODELS.personalItems.weightUrl, YOLO_MODELS.personalItems.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.phone.weightUrl, YOLO_MODELS.phone.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.electronics.weightUrl, YOLO_MODELS.electronics.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.computerApparatus.weightUrl, YOLO_MODELS.computerApparatus.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.phoneAndSuitcase.weightUrl, YOLO_MODELS.phoneAndSuitcase.modelId, 0.3),
+    ])
 
     // Aggregate detections
-    const allObjects = [...computerApparatus]
+    const allObjects = [...personalItems, ...phone, ...electronics, ...computerApparatus, ...phoneAndSuitcase]
 
     // Deduplicate overlapping detections (same object detected by multiple models)
     const deduplicatedObjects = deduplicateDetections(allObjects)
@@ -1587,15 +1605,18 @@ export async function validateImageForCategory(
     description: string = ''
 ): Promise<ImageDuplicateCheckResult> {
 
-    // ── Step 1: Run EXCLUSIVELY the requested Computer Apparatus model ──────────
-    const computerApparatus = await detectWithHuggingFaceModel(
-        imageUrl,
-        'IndUSV/computerApparatus-detector'
-    )
+    // ── Step 1: Run all YOLO detectors in parallel ──────────────────────────
+    const [personalItems, phone, electronics, computerApparatus, phoneAndSuitcase] = await Promise.all([
+        detectWithYoloPython(imageUrl, YOLO_MODELS.personalItems.weightUrl, YOLO_MODELS.personalItems.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.phone.weightUrl, YOLO_MODELS.phone.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.electronics.weightUrl, YOLO_MODELS.electronics.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.computerApparatus.weightUrl, YOLO_MODELS.computerApparatus.modelId, 0.3),
+        detectWithYoloPython(imageUrl, YOLO_MODELS.phoneAndSuitcase.weightUrl, YOLO_MODELS.phoneAndSuitcase.modelId, 0.3),
+    ])
 
-    const allObjects = [...computerApparatus]
+    const allObjects = [...personalItems, ...phone, ...electronics, ...computerApparatus, ...phoneAndSuitcase]
 
-    console.log(`[ImageValidator] Detections from Computer Apparatus model: ${computerApparatus.length}`)
+    console.log(`[ImageValidator] Detections: Personal=${personalItems.length}, Phone=${phone.length}, Electronics=${electronics.length}, Computer=${computerApparatus.length}, PhoneSuitcase=${phoneAndSuitcase.length}`)
 
     // ── Step 2: NMS-deduplicate ─────────────────────────────────────────────
     const deduped = deduplicateDetections(allObjects)
@@ -1624,9 +1645,9 @@ export async function validateImageForCategory(
     const detectedObjects = deduped.map(o => ({ label: o.label, confidence: o.confidence }))
     const labelCounts = Object.fromEntries(uniqueNormLabels.map(l => [l, labelMap[l].count]))
 
-    console.log(`\n========== YOLO DETECTION SUMMARY (CompApp Model) ==========`)
+    console.log(`\n========== YOLO DETECTION SUMMARY (All 5 Models) ==========`)
     if (uniqueNormLabels.length === 0) {
-        console.log(`   NO OBJECTS DETECTED BY IndUSV/computerApparatus-detector`)
+        console.log(`   NO OBJECTS DETECTED BY ANY YOLO MODELS`)
         if (!HUGGINGFACE_API_KEY) {
             console.warn(`   ⚠️  WARNING: HUGGINGFACE_API_KEY is missing in .env!`)
         }
