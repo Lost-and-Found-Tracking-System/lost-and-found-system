@@ -641,7 +641,7 @@ export async function saveEmbeddingsToDatabase(
                     itemId: new Types.ObjectId(itemId),
                     embedding: hybridEmbedding,
                     metadata: {
-                        modelName: 'hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K',
+                        modelName: 'hf-hub:laion/CLIP-ViT-B-32-laion2B-s34B-b79K',
                         sourceFields: ['title', 'description', 'category', 'image'],
                         generatedAt: new Date(),
                     },
@@ -1514,6 +1514,10 @@ export async function validateTitleCategory(
                 const lines = stdout.trim().split('\n');
                 const lastLine = lines[lines.length - 1];
                 const result = JSON.parse(lastLine);
+
+                if (result.error) {
+                    console.error(`[AI Python Bridge] Reported Error: ${result.error}`);
+                }
 
                 const similarity = parseFloat(result.similarity);
 

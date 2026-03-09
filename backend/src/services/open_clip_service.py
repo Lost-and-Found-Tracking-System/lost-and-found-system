@@ -10,7 +10,8 @@ import os
 def generate_embedding(text_content=None, image_url=None):
     try:
         # Load model and preprocess
-        model_name = 'hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K'
+        # Use a reasonably sized model to prevent download timeouts (Network Errors)
+        model_name = 'hf-hub:laion/CLIP-ViT-B-32-laion2B-s34B-b79K'
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
         # Use a local cache directory to avoid re-downloading every time if possible
