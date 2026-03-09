@@ -12,6 +12,12 @@ hf_logging.set_verbosity_error()
 logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 logging.getLogger("torch").setLevel(logging.ERROR)
 
+import os
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(__file__), '../../.env')
+load_dotenv(env_path, override=True)
+
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 
 def run_inference(message):
@@ -20,7 +26,7 @@ def run_inference(message):
         
     client = Groq(api_key=GROQ_API_KEY)
     completion = client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": message}],
         temperature=0.1,
         max_tokens=1024,
@@ -37,7 +43,21 @@ def getCategoryDescription(category):
     return run_inference(prompt)
 
 def getCommonDescription(lostItem, category, lostItemDescription, categoryDescription):
-    prompt = f"Lost Item: {lostItem}\nLost Item Description: {lostItemDescription}\ncategory: {category}\nCategory Description: {categoryDescription}\n\nParse out the EXACT SENTENCES of the given CATEGORY DESCRIPTION that align with the features of {lostItem}.\nIf none match, return NULL.\nAVOID ADDING ANY OTHER FURTHER CONTENT OF YOUR OWN"
+    prompt = f'''
+    Lost Item: {lostItem}
+    Lost Item Description: {lostItemDescription}
+    Category: {category}
+    
+    Evaluate if the {lostItem} matches the given {category}. 
+    - If it is a clear match, output the EXACT FULL TEXT of the Category Description below verbatim.
+    - If it only partially matches, parse out ONLY the exact sentences of the Category Description that align with the item.
+    - If it does not match at all, return the word NULL.
+
+    Category Description to output if match:
+    {categoryDescription}
+
+    AVOID ADDING ANY OTHER CONTENT, PREAMBLE, OR FORMATTING OF YOUR OWN.
+    '''
     return run_inference(prompt)
 
 def compute_label_similarity(model, item_text, item_desc, label):
@@ -55,16 +75,8 @@ def compute_label_similarity(model, item_text, item_desc, label):
         similarity = model.similarity(queryEmbedding, sentenceEmbedding).item() * 100
         return similarity
     except Exception as e:
-        print(f"Error computing similarity for {label} via Groq: {e}. Using fallback.", file=sys.stderr)
-        
-        # Fallback offline string encoding
-        queryEmbedding = model.encode(label)
-        sentenceEmbedding = model.encode(item_text)
-        raw_sim = model.similarity(queryEmbedding, sentenceEmbedding).item()
-        
-        # Scale to 0-100 threshold
-        fallback_sim = max(0.0, raw_sim * 150.0)
-        return fallback_sim
+        print(f"Error computing similarity for {label}: {e}", file=sys.stderr)
+        return 0
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
@@ -87,11 +99,7 @@ if __name__ == "__main__":
 
     try:
         model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        try:
-            item_desc = getLostItemDescription(item_text)
-        except Exception as e:
-            print(f"Error getting overall item desc via Groq: {e}. Using fallback.", file=sys.stderr)
-            item_desc = item_text
+        item_desc = getLostItemDescription(item_text)
 
         results = []
         for label in labels:

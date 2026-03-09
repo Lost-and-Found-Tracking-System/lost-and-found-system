@@ -12,6 +12,11 @@ hf_logging.set_verbosity_error()
 logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 logging.getLogger("torch").setLevel(logging.ERROR)
 
+import os
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(__file__), '../../.env')
+load_dotenv(env_path, override=True)
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 
@@ -24,7 +29,7 @@ def run_inference(message):
     # Use a standard Groq model that definitely exists
     # and remove 'reasoning_effort' which belongs to OpenAI o1 only.
     completion = client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": message}],
         temperature=0.1,
         max_tokens=1024,
@@ -56,22 +61,19 @@ def getCategoryDescription(category):
 
 def getCommonDescription(lostItem, category, lostItemDescription, categoryDescription):
     prompt = f'''
-    
     Lost Item: {lostItem}
-    
     Lost Item Description: {lostItemDescription}
+    Category: {category}
     
-    category: {category}
-    
-    Category Description: {categoryDescription}
-    
-    
-    Parse out the EXACT SENTENCES of the given CATEGORY DESCRIPTION that align with the features of {lostItem}.
-    
-    If none match, return NULL. 
-    
-    AVOID ADDING ANY OTHER FURTHER CONTENT OF YOUR OWN
-    
+    Evaluate if the {lostItem} matches the given {category}. 
+    - If it is a clear match, output the EXACT FULL TEXT of the Category Description below verbatim.
+    - If it only partially matches, parse out ONLY the exact sentences of the Category Description that align with the item.
+    - If it does not match at all, return the word NULL.
+
+    Category Description to output if match:
+    {categoryDescription}
+
+    AVOID ADDING ANY OTHER CONTENT, PREAMBLE, OR FORMATTING OF YOUR OWN.
     '''
     return run_inference(prompt)
 
@@ -89,34 +91,19 @@ if __name__ == "__main__":
     try:
         model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-        try:
-            # Try to hit Groq for advanced reasoning
-            itemDescription = getLostItemDescription(lostItem)
-            categoryDescription = getCategoryDescription(category)
-            commonDescription = getCommonDescription(
-                lostItem,
-                category,
-                itemDescription,
-                categoryDescription
-            )
+        # Try to hit Groq for advanced reasoning
+        itemDescription = getLostItemDescription(lostItem)
+        categoryDescription = getCategoryDescription(category)
+        commonDescription = getCommonDescription(
+            lostItem,
+            category,
+            itemDescription,
+            categoryDescription
+        )
 
-            queryEmbedding = model.encode(categoryDescription)
-            sentenceEmbedding = model.encode(commonDescription)
-            similarity = model.similarity(queryEmbedding, sentenceEmbedding).item() * 100
-
-        except Exception as e:
-            print(f"[Fallback] Groq failed ({e}), using raw text comparison", file=sys.stderr)
-            # Offline Fallback: compute cosine sim directly on raw title/desc and category name
-            itemDescription = lostItem
-            categoryDescription = category
-            commonDescription = lostItem
-            
-            queryEmbedding = model.encode(category)
-            sentenceEmbedding = model.encode(lostItem)
-            
-            raw_sim = model.similarity(queryEmbedding, sentenceEmbedding).item()
-            # Raw text similarity is often lower, scale it up so it matches the 0-100 threshold (35)
-            similarity = max(0.0, raw_sim * 150.0) 
+        queryEmbedding = model.encode(categoryDescription)
+        sentenceEmbedding = model.encode(commonDescription)
+        similarity = model.similarity(queryEmbedding, sentenceEmbedding).item() * 100
 
         print(json.dumps({
             "similarity": float(similarity),
