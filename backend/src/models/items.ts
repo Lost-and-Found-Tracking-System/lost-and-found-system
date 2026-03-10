@@ -79,6 +79,7 @@ const itemSchema = new Schema({
   reviewedBy: { type: Types.ObjectId, ref: 'users' },
   reviewedAt: { type: Date },
   aiMetadata: aiMetadataSchema,
+  views: { type: Number, default: 0 },
 }, { timestamps: true })
 
 itemSchema.index({ trackingId: 1 }, { unique: true })

@@ -286,6 +286,11 @@ itemsRouter.get('/:id', async (req, res, next) => {
     if (!item) {
       throw createApiError(404, 'Item not found')
     }
+
+    // Increment view count
+    item.views = (item.views || 0) + 1
+    await item.save()
+
     res.json(item)
   } catch (error) {
     next(error)

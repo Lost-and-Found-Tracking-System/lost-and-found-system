@@ -1,8 +1,3 @@
-/**
- * @module pages/ItemDetails
- * @description Item detail view with image gallery, claim submission, and status timeline.
- */
-
 import { gsap } from 'gsap';
 import {
     AlertTriangle,
@@ -10,8 +5,6 @@ import {
     Calendar,
     Camera,
     CheckCircle,
-    ChevronLeft,
-    ChevronRight,
     Clock,
     Eye,
     FileText,
@@ -19,32 +12,27 @@ import {
     MapPin,
     Package,
     Send,
-    Sparkles,
-    Tag,
-    X
+    X,
+    Tag
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
     ElasticButton,
-    GradientBorderCard,
-    HolographicCard,
-    MorphingBlob,
-    NeonText,
-    PulseRings,
-    TiltCard
+    PulseRings
 } from '../effects';
 import api from '../services/api';
 
 const ItemDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const isFromRecent = location.state?.fromRecent;
+
     const { user } = useAuth();
     const [item, setItem] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [currentImage, setCurrentImage] = useState(0);
     const [error, setError] = useState('');
     const [claimReason, setClaimReason] = useState('');
     const [claimImages, setClaimImages] = useState([]);
@@ -52,106 +40,66 @@ const ItemDetails = () => {
     const [claimSubmitting, setClaimSubmitting] = useState(false);
     const [claimSuccess, setClaimSuccess] = useState(false);
     const [claimError, setClaimError] = useState('');
-    const [matches, setMatches] = useState([]);
-    const [loadingMatches, setLoadingMatches] = useState(false);
+
+    const [userClaim, setUserClaim] = useState(null);
 
     const containerRef = useRef(null);
-    const imageRef = useRef(null);
     const claimFileInputRef = useRef(null);
 
-    // Fetch item details
+    // Fetch item details and user's claim
     useEffect(() => {
-        const fetchItem = async () => {
+        const fetchItemAndClaim = async () => {
             try {
                 const res = await api.get(`/v1/items/${id}`);
                 setItem(res.data);
 
-                // Fetch AI Matches
-                setLoadingMatches(true);
-                const matchesRes = await api.get(`/v1/items/${id}/matches`);
-                setMatches(matchesRes.data);
+                if (user) {
+                    try {
+                        const claimsRes = await api.get('/v1/claims/user/my-claims');
+                        const claims = claimsRes.data.claims || claimsRes.data || [];
+                        const existingClaim = claims.find(c => (c.itemId?._id || c.itemId) === id);
+                        if (existingClaim) {
+                            setUserClaim(existingClaim);
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch user claims:', err);
+                    }
+                }
             } catch (error) {
-                console.error('Failed to fetch item details or matches:', error);
+                console.error('Failed to fetch item details:', error);
                 setError('Item not found');
             } finally {
-                setLoadingMatches(false);
                 setLoading(false);
             }
         };
 
-        fetchItem();
-    }, [id]);
+        fetchItemAndClaim();
+    }, [id, user]);
 
     // GSAP Animations
     useEffect(() => {
         if (loading || !item) return;
 
         const ctx = gsap.context(() => {
-            // Image entrance
             gsap.fromTo('.item-image-container',
-                { x: -80, opacity: 0, scale: 0.9 },
-                { x: 0, opacity: 1, scale: 1, duration: 1, ease: 'power4.out' }
+                { x: -50, opacity: 0, scale: 0.95 },
+                { x: 0, opacity: 1, scale: 1, duration: 0.8, ease: 'power3.out' }
             );
 
-            // Content entrance
-            gsap.fromTo('.item-content',
-                { x: 80, opacity: 0 },
-                { x: 0, opacity: 1, duration: 0.8, delay: 0.2, ease: 'power3.out' }
+            gsap.fromTo('.item-content-header',
+                { y: -20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.6, delay: 0.2, ease: 'power3.out' }
             );
 
-            // Details stagger
-            gsap.fromTo('.detail-row',
-                { y: 30, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.5, stagger: 0.08, delay: 0.4, ease: 'power3.out' }
+            gsap.fromTo('.detail-card',
+                { x: 50, opacity: 0 },
+                { x: 0, opacity: 1, duration: 0.6, stagger: 0.1, delay: 0.3, ease: 'power3.out' }
             );
-
-            // Action buttons
-            gsap.fromTo('.action-btn',
-                { y: 20, opacity: 0, scale: 0.9 },
-                { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.1, delay: 0.6, ease: 'back.out(2)' }
-            );
-
-            // Match suggestions
-            gsap.fromTo('.match-card',
-                { x: 50, opacity: 0, rotateY: 15 },
-                { x: 0, opacity: 1, rotateY: 0, duration: 0.7, stagger: 0.1, delay: 0.8, ease: 'power3.out' }
-            );
-
         }, containerRef);
 
         return () => ctx.revert();
     }, [loading, item]);
 
-    // Image navigation
-    const nextImage = () => {
-        if (item?.images?.length > 1) {
-            gsap.to(imageRef.current, {
-                x: -20,
-                opacity: 0,
-                duration: 0.2,
-                onComplete: () => {
-                    setCurrentImage(prev => (prev + 1) % item.images.length);
-                    gsap.fromTo(imageRef.current, { x: 20, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 });
-                }
-            });
-        }
-    };
-
-    const prevImage = () => {
-        if (item?.images?.length > 1) {
-            gsap.to(imageRef.current, {
-                x: 20,
-                opacity: 0,
-                duration: 0.2,
-                onComplete: () => {
-                    setCurrentImage(prev => (prev - 1 + item.images.length) % item.images.length);
-                    gsap.fromTo(imageRef.current, { x: -20, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3 });
-                }
-            });
-        }
-    };
-
-    // Handle claim image selection
     const handleClaimImageChange = (e) => {
         const files = Array.from(e.target.files);
         if (claimImages.length + files.length > 3) {
@@ -170,7 +118,6 @@ const ItemDetails = () => {
         setClaimImagePreviews(prev => prev.filter((_, i) => i !== index));
     };
 
-    // Raise a claim directly
     const handleRaiseClaim = async () => {
         if (!claimReason.trim()) {
             setClaimError('Please provide a reason for your claim.');
@@ -179,7 +126,6 @@ const ItemDetails = () => {
         setClaimSubmitting(true);
         setClaimError('');
         try {
-            // Upload images first if any
             const imageUrls = [];
             for (const file of claimImages) {
                 const formData = new FormData();
@@ -203,23 +149,12 @@ const ItemDetails = () => {
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'reported':
-            case 'submitted': return { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' };
-            case 'matched': return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' };
-            case 'claimed': return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' };
-            case 'resolved': return { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' };
-            default: return { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30' };
-        }
-    };
-
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+            <div className="min-h-screen bg-[#0a0c16] flex items-center justify-center">
                 <div className="relative">
-                    <PulseRings size={100} color="#0ea5e9" />
-                    <Package className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary-400" size={32} />
+                    <PulseRings size={100} color="#3b82f6" />
+                    <Package className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-400" size={32} />
                 </div>
             </div>
         );
@@ -227,13 +162,13 @@ const ItemDetails = () => {
 
     if (error || !item) {
         return (
-            <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+            <div className="min-h-screen bg-[#0a0c16] flex items-center justify-center">
                 <div className="text-center">
                     <AlertTriangle size={64} className="text-red-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-white mb-2">Item Not Found</h1>
-                    <p className="text-slate-400 mb-6">The item you're looking for doesn't exist or has been removed.</p>
+                    <p className="text-slate-400 mb-6">The item you're looking for doesn't exist.</p>
                     <Link to="/inventory">
-                        <ElasticButton className="px-6 py-3 bg-primary-600 rounded-xl text-white font-bold">
+                        <ElasticButton className="px-6 py-3 bg-blue-600 rounded-xl text-white font-bold">
                             Browse Items
                         </ElasticButton>
                     </Link>
@@ -242,348 +177,273 @@ const ItemDetails = () => {
         );
     }
 
-    const statusColors = getStatusColor(item.status);
-
     return (
-        <div ref={containerRef} className="min-h-screen bg-[#030712] text-white overflow-hidden relative">
-            {/* Background Effects */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-0 right-1/4">
-                    <MorphingBlob color1="#0ea5e9" color2="#8b5cf6" size={500} />
-                </div>
-                <div className="absolute bottom-0 left-1/4">
-                    <MorphingBlob color1="#8b5cf6" color2="#ec4899" size={400} />
-                </div>
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.015)_1px,transparent_1px)] bg-[size:60px_60px]" />
-            </div>
+        <div ref={containerRef} className="min-h-screen bg-[#0a0c16] text-white overflow-x-hidden relative flex flex-col items-center">
+            {/* Very faint background light from right like in the screenshot */}
+            <div className="absolute top-[10%] right-[-10%] w-[600px] h-[600px] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none" />
 
-            <Sidebar />
+            <main className="w-full max-w-6xl px-6 py-8 relative z-10 flex flex-col">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8 group text-sm self-start"
+                >
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                    <span>Back to Items</span>
+                </button>
 
-            <main className="pl-4 md:pl-8 pr-4 md:pr-8 py-8 relative z-10">
-                <div className="max-w-6xl mx-auto">
-                    {/* Back Button */}
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8 group"
-                    >
-                        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                        <span>Back to Items</span>
-                    </button>
-
-                    <div className="grid lg:grid-cols-2 gap-10">
-                        {/* Image Section */}
-                        <div className="item-image-container" style={{ perspective: 1000 }}>
-                            <TiltCard intensity={0.2}>
-                                <HolographicCard className="overflow-hidden rounded-3xl">
-                                    <div className="relative aspect-square bg-slate-900">
-                                        {item.images?.length > 0 ? (
-                                            <img
-                                                ref={imageRef}
-                                                src={item.images[currentImage]}
-                                                alt={item.itemAttributes?.category || 'Item'}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Package size={120} className="text-slate-700" />
-                                            </div>
-                                        )}
-
-                                        {/* Type Badge */}
-                                        <div className={`absolute top-6 left-6 px-5 py-2 rounded-full text-sm font-bold ${item.submissionType === 'lost'
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-emerald-500 text-white'
-                                            }`}>
-                                            {item.submissionType?.toUpperCase()}
-                                        </div>
-
-                                        {/* Status Badge */}
-                                        <div className={`absolute top-6 right-6 px-4 py-2 rounded-full text-sm font-bold ${statusColors.bg} ${statusColors.text} ${statusColors.border} border backdrop-blur-sm`}>
-                                            {item.status?.toUpperCase()}
-                                        </div>
-
-                                        {/* Image Navigation */}
-                                        {item.images?.length > 1 && (
-                                            <>
-                                                <button
-                                                    onClick={prevImage}
-                                                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors backdrop-blur-sm"
-                                                >
-                                                    <ChevronLeft size={24} />
-                                                </button>
-                                                <button
-                                                    onClick={nextImage}
-                                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors backdrop-blur-sm"
-                                                >
-                                                    <ChevronRight size={24} />
-                                                </button>
-
-                                                {/* Dots */}
-                                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-                                                    {item.images.map((_, i) => (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => setCurrentImage(i)}
-                                                            className={`w-2.5 h-2.5 rounded-full transition-all ${i === currentImage
-                                                                ? 'bg-white w-8'
-                                                                : 'bg-white/40 hover:bg-white/60'
-                                                                }`}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </HolographicCard>
-                            </TiltCard>
-
-                            {/* Thumbnail Strip */}
-                            {item.images?.length > 1 && (
-                                <div className="flex gap-3 mt-4">
-                                    {item.images.map((img, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => setCurrentImage(i)}
-                                            className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === currentImage
-                                                ? 'border-primary-500 ring-2 ring-primary-500/30'
-                                                : 'border-slate-700 hover:border-slate-500'
-                                                }`}
-                                        >
-                                            <img src={img} alt="" className="w-full h-full object-cover" />
-                                        </button>
-                                    ))}
+                <div className="grid lg:grid-cols-2 gap-12">
+                    {/* Image Section */}
+                    <div className="item-image-container">
+                        <div className="relative aspect-square bg-white rounded-[2rem] overflow-hidden">
+                            {item.images?.length > 0 ? (
+                                <img
+                                    src={item.images[0]}
+                                    alt={item.itemAttributes?.category || 'Item'}
+                                    className="w-full h-full object-contain p-2"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <Package size={120} className="text-slate-300" />
                                 </div>
                             )}
+
+                            {/* Tags */}
+                            <div className={`absolute top-6 left-6 px-4 py-1.5 rounded-full text-xs font-bold tracking-wider ${item.submissionType === 'lost' ? 'bg-[#ff4e4e] text-white' : 'bg-emerald-500 text-white'}`}>
+                                {item.submissionType?.toUpperCase() || 'LOST'}
+                            </div>
+
+                            <div className="absolute top-6 right-6 px-4 py-1.5 rounded-full text-[10px] font-bold tracking-wider bg-[#d0e6ff] text-[#3b82f6]">
+                                {(item.status === 'submitted' || item.status === 'reported') ? 'SUBMITTED' : item.status?.toUpperCase() || 'SUBMITTED'}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="flex flex-col gap-6">
+                        <div className="item-content-header">
+                            <h1 className="text-4xl font-extrabold text-white mb-2">
+                                {item.itemAttributes?.category || 'Electronics'}
+                            </h1>
+                            <p className="text-slate-400 text-[15px]">
+                                {item.itemAttributes?.description || 'laptop'} - {item.itemAttributes?.category || 'Electronics item'}
+                            </p>
                         </div>
 
-                        {/* Content Section */}
-                        <div className="item-content">
-                            <h1 className="text-4xl font-black text-white mb-4">
-                                {item.itemAttributes?.category || 'Unknown Item'}
-                            </h1>
-
-                            <p className="text-lg text-slate-400 mb-8 leading-relaxed">
-                                {item.itemAttributes?.description || 'No description provided for this item.'}
-                            </p>
-
-                            {/* Details Grid */}
-                            <GradientBorderCard className="mb-8">
-                                <div className="divide-y divide-slate-700/50">
-                                    <div className="detail-row flex items-center justify-between p-4">
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <MapPin size={20} className="text-cyan-400" />
+                        {/* Details Card */}
+                        <div className="detail-card rounded-2xl p-[1.5px] bg-gradient-to-br from-[#8b35f6] via-[#d946ef] to-transparent shadow-lg">
+                            <div className="rounded-2xl bg-[#111422] p-6 lg:p-7">
+                                <div className="divide-y divide-slate-800">
+                                    <div className="flex items-center justify-between py-3.5 first:pt-0">
+                                        <div className="flex items-center gap-3 text-slate-400 text-sm">
+                                            <MapPin size={16} className="text-cyan-400" />
                                             <span>Location</span>
                                         </div>
-                                        <span className="font-semibold text-white">{item.location?.zoneId?.zoneName || 'Not specified'}</span>
+                                        <span className="font-semibold text-white text-sm">
+                                            {item.location?.zoneId?.zoneName || 'AB1'}
+                                        </span>
                                     </div>
 
-                                    <div className="detail-row flex items-center justify-between p-4">
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <Calendar size={20} className="text-violet-400" />
+                                    <div className="flex items-center justify-between py-3.5">
+                                        <div className="flex items-center gap-3 text-slate-400 text-sm">
+                                            <Calendar size={16} className="text-purple-400" />
                                             <span>Date {item.submissionType === 'lost' ? 'Lost' : 'Found'}</span>
                                         </div>
-                                        <span className="font-semibold text-white">{new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                        <span className="font-semibold text-white text-sm">
+                                            {new Date(item.timeMetadata?.lostOrFoundAt || item.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                        </span>
                                     </div>
 
-                                    {item.itemAttributes?.category && (
-                                        <div className="detail-row flex items-center justify-between p-4">
-                                            <div className="flex items-center gap-3 text-slate-400">
-                                                <Tag size={20} className="text-amber-400" />
-                                                <span>Category</span>
-                                            </div>
-                                            <span className="font-semibold text-white">{item.itemAttributes.category}</span>
+                                    <div className="flex items-center justify-between py-3.5">
+                                        <div className="flex items-center gap-3 text-slate-400 text-sm">
+                                            <Tag size={16} className="text-yellow-500" />
+                                            <span>Category</span>
+                                        </div>
+                                        <span className="font-semibold text-white text-sm">
+                                            {item.itemAttributes?.category || 'Electronics'}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between py-3.5">
+                                        <div className="flex items-center gap-3 text-slate-400 text-sm">
+                                            <Clock size={16} className="text-green-500" />
+                                            <span>Posted</span>
+                                        </div>
+                                        <span className="font-semibold text-white text-sm">
+                                            {new Date(item.createdAt).toLocaleDateString()}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between py-3.5 last:pb-0">
+                                        <div className="flex items-center gap-3 text-slate-400 text-sm">
+                                            <Eye size={16} className="text-pink-400" />
+                                            <span>Views</span>
+                                        </div>
+                                        <span className="font-semibold text-white text-sm">
+                                            {item.views || 0}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* User's Existing Claim */}
+                        {userClaim && (
+                            <div className="detail-card rounded-2xl p-[1.5px] bg-gradient-to-br from-[#10b981] via-[#0ea5e9] to-transparent shadow-lg flex-1">
+                                <div className="rounded-2xl bg-[#111422] p-6 lg:p-7 space-y-4 h-full flex flex-col">
+                                    <h3 className="text-white font-bold text-[17px] flex items-center gap-2">
+                                        <FileText size={18} className="text-[#10b981]" />
+                                        Your Claim Details
+                                    </h3>
+
+                                    <div className="flex items-center gap-3">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${userClaim.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                                            userClaim.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                'bg-red-500/20 text-red-400'
+                                            }`}>
+                                            Status: {userClaim.status?.toUpperCase() || 'PENDING'}
+                                        </span>
+                                        <span className="text-slate-400 text-xs">
+                                            Submitted: {new Date(userClaim.submittedAt).toLocaleDateString()}
+                                        </span>
+                                    </div>
+
+                                    {userClaim.status === 'rejected' && userClaim.rejectionReason && (
+                                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                                            <p className="text-red-400 text-sm"><span className="font-bold">Reason:</span> {userClaim.rejectionReason}</p>
                                         </div>
                                     )}
 
-                                    <div className="detail-row flex items-center justify-between p-4">
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <Clock size={20} className="text-emerald-400" />
-                                            <span>Posted</span>
-                                        </div>
-                                        <span className="font-semibold text-white">{new Date(item.createdAt).toLocaleDateString()}</span>
-                                    </div>
-
-                                    <div className="detail-row flex items-center justify-between p-4">
-                                        <div className="flex items-center gap-3 text-slate-400">
-                                            <Eye size={20} className="text-pink-400" />
-                                            <span>Views</span>
-                                        </div>
-                                        <span className="font-semibold text-white">{item.views || 0}</span>
+                                    <div className="mt-4">
+                                        <h4 className="text-sm font-semibold text-slate-300 mb-2">Proofs Provided:</h4>
+                                        {userClaim.ownershipProofs?.filter(p => !p.startsWith('http')).length > 0 && (
+                                            <p className="text-slate-400 text-sm mb-3">
+                                                {userClaim.ownershipProofs.filter(p => !p.startsWith('http')).join(' • ')}
+                                            </p>
+                                        )}
+                                        {userClaim.ownershipProofs?.filter(p => p.startsWith('http')).length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {userClaim.ownershipProofs.filter(p => p.startsWith('http')).map((url, i) => (
+                                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 rounded-xl overflow-hidden border border-slate-700 hover:border-blue-400 transition-colors">
+                                                        <img src={url} alt={`Proof ${i}`} className="w-full h-full object-cover" />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                            </GradientBorderCard>
+                            </div>
+                        )}
 
-                            {/* Raise a Claim */}
-                            <div className="space-y-4">
-                                {(item.status === 'reported' || item.status === 'submitted') && user && !claimSuccess && (
-                                    <GradientBorderCard className="">
-                                        <div className="p-5 space-y-4">
-                                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                                <FileText size={20} className="text-primary-400" />
-                                                {item.submissionType === 'lost' ? 'I Found This Item' : 'Claim This Item'}
-                                            </h3>
-                                            <p className="text-slate-400 text-sm">
-                                                {item.submissionType === 'lost'
-                                                    ? 'If you found this item, raise a claim with a brief description of how you can identify it.'
-                                                    : 'If this is your item, raise a claim with proof of ownership (e.g., unique marks, serial number, purchase details).'}
-                                            </p>
-                                            <textarea
-                                                value={claimReason}
-                                                onChange={(e) => setClaimReason(e.target.value)}
-                                                placeholder="Describe your proof of ownership or how you can identify this item..."
-                                                rows={3}
-                                                className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all resize-none"
-                                            />
+                        {/* Claim Card */}
+                        {(item.status === 'reported' || item.status === 'submitted') && !claimSuccess && !userClaim && !isFromRecent && (
+                            <div className="detail-card rounded-2xl p-[1.5px] bg-gradient-to-br from-[#8b35f6] via-[#d946ef] to-transparent shadow-lg flex-1">
+                                <div className="rounded-2xl bg-[#111422] p-6 lg:p-7 space-y-4 h-full flex flex-col">
+                                    <h3 className="text-white font-bold text-[17px] flex items-center gap-2">
+                                        <FileText size={18} className="text-[#3b82f6]" />
+                                        {item.submissionType === 'lost' ? 'I Found This Item' : 'Claim This Item'}
+                                    </h3>
+                                    <p className="text-slate-400 text-xs leading-5 pr-4">
+                                        {item.submissionType === 'lost'
+                                            ? 'If you found this item, raise a claim with a brief description of how you can identify it.'
+                                            : 'If this is your item, raise a claim with proof of ownership (e.g., unique marks, serial number, purchase details).'}
+                                    </p>
 
-                                            {/* Image Upload */}
-                                            <div>
-                                                <label className="text-sm text-slate-400 mb-2 block">Upload proof images (optional, max 3)</label>
-                                                <input
-                                                    ref={claimFileInputRef}
-                                                    type="file"
-                                                    accept="image/*"
-                                                    multiple
-                                                    onChange={handleClaimImageChange}
-                                                    className="hidden"
-                                                />
-                                                <div className="flex flex-wrap gap-3">
-                                                    {claimImagePreviews.map((preview, i) => (
-                                                        <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-700 group">
-                                                            <img src={preview} alt="Proof" className="w-full h-full object-cover" />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeClaimImage(i)}
-                                                                className="absolute top-1 right-1 p-0.5 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            >
-                                                                <X size={12} />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    {claimImages.length < 3 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => claimFileInputRef.current?.click()}
-                                                            className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-700 hover:border-primary-500 flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-primary-400 transition-colors"
-                                                        >
-                                                            <Camera size={20} />
-                                                            <span className="text-[10px]">Add</span>
-                                                        </button>
-                                                    )}
+                                    <textarea
+                                        value={claimReason}
+                                        onChange={(e) => setClaimReason(e.target.value)}
+                                        placeholder="Describe your proof of ownership or how you can identify this item..."
+                                        rows={4}
+                                        className="w-full px-4 py-3 bg-[#191e2b] border border-transparent rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-all resize-none mt-2"
+                                    />
+
+                                    <div className="mt-2 mb-2">
+                                        <label className="text-xs text-slate-400 mb-3 block">Upload proof images (optional, max 3)</label>
+                                        <input
+                                            ref={claimFileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={handleClaimImageChange}
+                                            className="hidden"
+                                        />
+                                        <div className="flex flex-wrap gap-3">
+                                            {claimImagePreviews.map((preview, i) => (
+                                                <div key={i} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-700 group">
+                                                    <img src={preview} alt="Proof" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeClaimImage(i)}
+                                                        className="absolute top-1 right-1 p-0.5 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
                                                 </div>
-                                            </div>
-                                            {claimError && (
-                                                <div className="flex items-center gap-2 text-red-400 text-sm">
-                                                    <AlertTriangle size={16} />
-                                                    {claimError}
-                                                </div>
+                                            ))}
+                                            {claimImages.length < 3 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => claimFileInputRef.current?.click()}
+                                                    className="w-14 h-14 rounded-xl border border-dashed border-slate-600 bg-transparent flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-white hover:border-slate-500 transition-colors"
+                                                >
+                                                    <Camera size={14} />
+                                                    <span className="text-[10px]">Add</span>
+                                                </button>
                                             )}
-                                            <ElasticButton
+                                        </div>
+                                    </div>
+
+                                    {claimError && (
+                                        <div className="flex items-center gap-2 text-red-400 text-xs mt-2">
+                                            <AlertTriangle size={14} />
+                                            {claimError}
+                                        </div>
+                                    )}
+
+                                    <div className="mt-auto pt-2">
+                                        {!user ? (
+                                            <Link to="/login" className="block w-full">
+                                                <button type="button" className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-bold text-white text-sm hover:opacity-90 transition-opacity">
+                                                    Sign in to Raise Claim
+                                                </button>
+                                            </Link>
+                                        ) : (
+                                            <button
                                                 onClick={handleRaiseClaim}
                                                 disabled={claimSubmitting}
-                                                className="action-btn w-full py-4 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg shadow-primary-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full py-3.5 bg-gradient-to-r from-[#2563eb] to-[#6366f1] hover:from-blue-500 hover:to-indigo-500 rounded-xl font-semibold text-white text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50 transition-all"
                                             >
                                                 {claimSubmitting ? (
-                                                    <Loader2 size={22} className="animate-spin" />
+                                                    <Loader2 size={16} className="animate-spin" />
                                                 ) : (
                                                     <>
-                                                        <Send size={20} />
+                                                        <Send size={16} className="rotate-[-45deg] -mt-1" />
                                                         <span>Raise Claim</span>
                                                     </>
                                                 )}
-                                            </ElasticButton>
-                                        </div>
-                                    </GradientBorderCard>
-                                )}
-
-                                {claimSuccess && (
-                                    <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <CheckCircle size={24} className="text-emerald-400" />
-                                            <span className="font-bold text-emerald-400 text-lg">Claim Submitted!</span>
-                                        </div>
-                                        <p className="text-slate-400 text-sm mb-4">
-                                            Your claim has been submitted with <span className="text-white font-semibold">pending</span> status. An admin will review it shortly.
-                                        </p>
-                                        <Link to="/my-claims">
-                                            <ElasticButton className="px-6 py-3 bg-emerald-600/20 border border-emerald-500/30 rounded-xl text-emerald-400 font-semibold hover:bg-emerald-600/30 transition-all">
-                                                View My Claims
-                                            </ElasticButton>
-                                        </Link>
+                                            </button>
+                                        )}
                                     </div>
-                                )}
-
-                                {!user && (item.status === 'reported' || item.status === 'submitted') && (
-                                    <div className="p-5 bg-slate-800/40 border border-slate-700/50 rounded-2xl text-center">
-                                        <p className="text-slate-400 mb-3">Sign in to raise a claim for this item</p>
-                                        <Link to="/login">
-                                            <ElasticButton className="px-6 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl text-white font-bold">
-                                                Sign In
-                                            </ElasticButton>
-                                        </Link>
-                                    </div>
-                                )}
-
-                            </div>
-
-                            {/* AI Match Analysis */}
-                            {(item.aiMatchScore || matches.length > 0) && (
-                                <div className="mt-8 p-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl border border-purple-500/20">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <Sparkles size={24} className="text-purple-400" />
-                                        <span className="font-bold text-white">AI Match Analysis & FAISS Search</span>
-                                    </div>
-
-                                    {item.aiMatchScore && (
-                                        <p className="text-slate-400 text-sm mb-6">
-                                            Our AI has found potential matches for this item with an overall confidence score of{' '}
-                                            <NeonText color="#a855f7">{item.aiMatchScore}%</NeonText>
-                                        </p>
-                                    )}
-
-                                    {matches.length > 0 ? (
-                                        <div className="space-y-4">
-                                            <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Top correlated records via FAISS</h4>
-                                            <div className="grid gap-4">
-                                                {matches.map((match, idx) => {
-                                                    const matchedItem = item.submissionType === 'lost' ? match.foundItemId : match.lostItemId;
-                                                    if (!matchedItem) return null;
-
-                                                    return (
-                                                        <Link
-                                                            key={match._id}
-                                                            to={`/inventory/${matchedItem._id}`}
-                                                            className="match-card group p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-purple-500/50 transition-all flex items-center gap-4"
-                                                        >
-                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-900 flex-shrink-0">
-                                                                {matchedItem.images?.length > 0 ? (
-                                                                    <img src={matchedItem.images[0]} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center">
-                                                                        <Package size={24} className="text-slate-700" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex-grow min-w-0">
-                                                                <h5 className="font-bold text-white truncate">{matchedItem.itemAttributes?.category || 'Uncategorized'}</h5>
-                                                                <p className="text-slate-400 text-xs truncate">{matchedItem.itemAttributes?.description}</p>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-xs text-slate-500 mb-1">Correlation</div>
-                                                                <div className="font-mono font-bold text-purple-400">
-                                                                    {Math.round(match.similarityScore)}%
-                                                                </div>
-                                                            </div>
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        !loadingMatches && <p className="text-slate-500 text-sm italic">No semantic match pairs found in database for this item yet.</p>
-                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
+
+                        {claimSuccess && (
+                            <div className="p-6 bg-[#111422] border border-emerald-500/30 rounded-2xl flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <CheckCircle size={24} className="text-emerald-400" />
+                                    <span className="font-bold text-emerald-400 text-lg">Claim Submitted!</span>
+                                </div>
+                                <p className="text-slate-400 text-sm mb-4">
+                                    Your claim has been submitted with <span className="text-white font-semibold">pending</span> status. An admin will review it shortly.
+                                </p>
+                                <Link to="/my-claims">
+                                    <button className="px-6 py-3 bg-emerald-600/20 rounded-xl text-emerald-400 font-semibold hover:bg-emerald-600/30 transition-all text-sm">
+                                        View My Claims
+                                    </button>
+                                </Link>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             </main>
