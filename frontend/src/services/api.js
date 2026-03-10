@@ -7,13 +7,19 @@
 
 import axios from 'axios';
 
+const getBaseURL = () => {
+    const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Ensure the URL ends with /api (Auto-redirect to Azure)
+    return url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
+};
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+    baseURL: getBaseURL(),
     headers: {
         'Content-Type': 'application/json',
     },
     withCredentials: true,
-    timeout: 120000, // 120s — AI endpoints (Groq + MiniLM) can take 30-60s
+    timeout: 15000,
 });
 
 // Request interceptor - add auth token
