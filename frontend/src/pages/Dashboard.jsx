@@ -156,7 +156,7 @@ const Dashboard = () => {
         },
         {
             icon: Clock,
-            label: 'Pending Items',
+            label: 'Pending',
             value: stats.pendingClaims || 0,
             color: '#f59e0b',
             gradient: 'from-amber-500 to-orange-500'
@@ -315,7 +315,6 @@ const Dashboard = () => {
                                             <Link
                                                 key={i}
                                                 to={`/item/${item._id}`}
-                                                state={{ fromRecent: true }}
                                                 className="flex items-center gap-4 p-4 hover:bg-slate-800/30 transition-colors group"
                                             >
                                                 <div className="w-14 h-14 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
@@ -365,12 +364,7 @@ const Dashboard = () => {
                                 <div className="divide-y divide-slate-700/50">
                                     {recentClaims.length > 0 ? (
                                         recentClaims.map((claim, i) => (
-                                            <Link
-                                                key={i}
-                                                to={`/item/${claim.itemId?._id || claim.item?._id}`}
-                                                state={{ fromRecent: true }}
-                                                className="flex items-center gap-4 p-4 hover:bg-slate-800/30 transition-colors group"
-                                            >
+                                            <div key={i} className="flex items-center gap-4 p-4">
                                                 <div className="w-14 h-14 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
                                                     {(() => {
                                                         const imageProof = claim.ownershipProofs?.find(p => p.startsWith('http'));
@@ -395,7 +389,7 @@ const Dashboard = () => {
                                                     }`}>
                                                     {claim.status}
                                                 </div>
-                                            </Link>
+                                            </div>
                                         ))
                                     ) : (
                                         <div className="p-8 text-center">

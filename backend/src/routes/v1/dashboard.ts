@@ -27,13 +27,13 @@ dashboardRouter.get('/stats', authMiddleware, async (req: AuthRequest, res: Resp
         // Get user's claims count
         const totalClaims = await ClaimModel.countDocuments({ claimantId: userId })
 
-        // "Pending" on dashboard: User's reported items that are pending or submitted
-        const pendingClaims = await ItemModel.countDocuments({
-            submittedBy: userId,
-            status: { $in: ['pending', 'submitted', 'matched'] }
+        // Get user's pending claims
+        const pendingClaims = await ClaimModel.countDocuments({
+            claimantId: userId,
+            status: 'pending'
         })
 
-        // "Resolved" on dashboard: Items submitted by user that are resolved
+        // Get resolved items (items submitted by user that are resolved)
         const resolvedItems = await ItemModel.countDocuments({
             submittedBy: userId,
             status: 'resolved'
