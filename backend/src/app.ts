@@ -6,7 +6,7 @@
 
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
-import express, { Request, Response } from 'express'
+import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -60,18 +60,9 @@ export function createApp() {
   app.use(express.json())
   app.use(cookieParser())
 
-  // Root route - confirms server is live
-  app.get('/', (_req: Request, res: Response) => {
-    res.json({
-      message: 'Campus Lost & Found API is live! 🚀',
-      version: '1.0.0',
-      health: '/api/health'
-    })
-  })
-
   // Debug endpoints — only available in development
   if (process.env.NODE_ENV === 'development') {
-    app.get('/debug/claims', async (_req: Request, res: Response) => {
+    app.get('/debug/claims', async (_req, res) => {
       try {
         const { ClaimModel } = await import('./models/index.js');
         const count = await ClaimModel.countDocuments();
@@ -82,7 +73,7 @@ export function createApp() {
       }
     });
 
-    app.post('/debug/generate-data', async (_req: Request, res: Response) => {
+    app.post('/debug/generate-data', async (_req, res) => {
       try {
         const { UserModel, ItemModel, ClaimModel } = await import('./models/index.js');
         const { Types } = await import('mongoose');
