@@ -9,7 +9,6 @@ import axios from 'axios';
 
 const getBaseURL = () => {
     const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    console.log('Connecting to API at:', url);
     // Ensure the URL ends with /api (Auto-redirect to Azure)
     return url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
 };
