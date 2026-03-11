@@ -407,16 +407,3 @@ This project uses a **multi-repository architecture** under the [Lost-and-Found-
 |-----------|---------|
 | [`lost-and-found-system`](https://github.com/Lost-and-Found-Tracking-System/lost-and-found-system) | Main application (backend + frontend + e2e + AI/ML) |
 | [`docs`](https://github.com/Lost-and-Found-Tracking-System/docs) | Documentation submodule (DevDocs, Test Reports, Notebook Soft Copy, UML Diagrams, Architecture Diagram) |
-
----
-
-## Additional Resources
-
-- [Express.js Documentation](https://expressjs.com/)
-- [React Documentation](https://react.dev/)
-- [Vite Documentation](https://vitejs.dev/)
-- [Vitest Documentation](https://vitest.dev/)
-- [Playwright Documentation](https://playwright.dev/)
-- [MongoDB Documentation](https://docs.mongodb.com/)
-
----
